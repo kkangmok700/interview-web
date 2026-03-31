@@ -595,9 +595,11 @@ function renderCommitteeSelect() {
             + '<div class="col-md-4"><label class="form-label fw-bold">회의명 *</label><input type="text" class="form-control" id="cmTitle" placeholder="예: 제1차 산학협력단 운영위원회" required></div>'
             + '<div class="col-md-2"><label class="form-label fw-bold">회차</label><input type="text" class="form-control" id="cmNumber" placeholder="제1차"></div>'
             + '<div class="col-md-3"><label class="form-label fw-bold">회의일자 *</label><input type="date" class="form-control" id="cmDate" required></div>'
-            + '<div class="col-md-3"><label class="form-label fw-bold">회의록 파일 *</label><input type="file" class="form-control" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp" required></div>'
             + '</div>'
-            + '<div class="mb-3"><label class="form-label fw-bold"><i class="bi bi-paperclip"></i> 첨부파일 (선택, 최대 5개)</label><input type="file" class="form-control" id="cmAttachments" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp,.xlsx,.xls,.pptx,.ppt,.zip"></div>'
+            + '<div class="row mb-3">'
+            + '<div class="col-md-6"><label class="form-label fw-bold"><i class="bi bi-file-earmark-text"></i> 회의록 파일 *</label><input type="file" class="form-control" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp" required><div class="form-text">회의록 본문 파일 (PDF, 이미지, 한글 등)</div></div>'
+            + '<div class="col-md-6"><label class="form-label fw-bold"><i class="bi bi-paperclip"></i> 첨부파일</label><input type="file" class="form-control" id="cmAttachments" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp,.xlsx,.xls,.pptx,.ppt,.zip"><div class="form-text">참고자료, 별첨 등 (선택, 최대 5개)</div></div>'
+            + '</div>'
             + '<div class="mb-3"><label class="form-label fw-bold">서명 대상 위원 *</label><div id="cmSignerCheckboxes"></div></div>'
             + '<button type="submit" class="btn btn-primary main-btn"><i class="bi bi-upload"></i> 회의록 등록</button>'
             + '</form></div></div>';
