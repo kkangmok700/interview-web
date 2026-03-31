@@ -587,29 +587,30 @@ function renderCommitteeSelect() {
 
     // 새 회의록 업로드 (관리자만)
     if (isAdmin()) {
-        html += '<div class="card shadow-sm mb-4">'
-            + '<div class="card-header main-btn text-white"><h5 class="mb-0"><i class="bi bi-plus-circle"></i> 새 회의록 등록</h5></div>'
+        html += '<div class="card shadow-sm mb-4 border-start border-4 border-warning">'
+            + '<div class="card-header main-btn text-white"><h5 class="mb-0"><i class="bi bi-upload"></i> 회의록 업로드</h5></div>'
             + '<div class="card-body p-4">'
             + '<form id="committeeMinutesForm">'
             + '<div class="row mb-3">'
-            + '<div class="col-md-6"><label class="form-label fw-bold">회의명 *</label><input type="text" class="form-control" id="cmTitle" placeholder="예: 제1차 산학협력단 운영위원회" required></div>'
+            + '<div class="col-md-4"><label class="form-label fw-bold">회의명 *</label><input type="text" class="form-control" id="cmTitle" placeholder="예: 제1차 산학협력단 운영위원회" required></div>'
+            + '<div class="col-md-2"><label class="form-label fw-bold">회차</label><input type="text" class="form-control" id="cmNumber" placeholder="제1차"></div>'
             + '<div class="col-md-3"><label class="form-label fw-bold">회의일자 *</label><input type="date" class="form-control" id="cmDate" required></div>'
-            + '<div class="col-md-3"><label class="form-label fw-bold">회차</label><input type="text" class="form-control" id="cmNumber" placeholder="예: 제1차"></div>'
+            + '<div class="col-md-3"><label class="form-label fw-bold">회의록 파일 *</label><input type="file" class="form-control" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp" required></div>'
             + '</div>'
             + '<div class="mb-3"><label class="form-label fw-bold">안건</label><textarea class="form-control" id="cmAgenda" rows="2" placeholder="회의 안건을 입력하세요"></textarea></div>'
-            + '<div class="mb-3"><label class="form-label fw-bold">회의록 파일 첨부 (PDF/이미지)</label><input type="file" class="form-control" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp"></div>'
-            + '<div class="mb-3"><label class="form-label fw-bold">서명 대상 위원 선택 *</label><div id="cmSignerCheckboxes"></div></div>'
-            + '<button type="submit" class="btn btn-primary main-btn"><i class="bi bi-check-lg"></i> 회의록 등록</button>'
+            + '<div class="mb-3"><label class="form-label fw-bold">서명 대상 위원 *</label><div id="cmSignerCheckboxes"></div></div>'
+            + '<button type="submit" class="btn btn-primary main-btn"><i class="bi bi-upload"></i> 회의록 등록</button>'
             + '</form></div></div>';
     }
 
-    // 등록된 회의록 목록
-    html += '<h5 class="fw-bold mb-3">등록된 회의록</h5>';
+    // 등록된 회의록 목록 (카드 형태로 순서대로)
+    html += '<h5 class="fw-bold mb-3"><i class="bi bi-journal-text"></i> 등록된 회의록 (' + minutes.length + '건)</h5>';
 
     if (!minutes.length) {
-        html += '<div class="text-center py-4 text-muted"><i class="bi bi-inbox display-4"></i><p class="mt-2">등록된 회의록이 없습니다.</p></div>';
+        html += '<div class="text-center py-5 text-muted"><i class="bi bi-inbox display-1"></i><p class="mt-3">등록된 회의록이 없습니다.</p></div>';
     } else {
-        for (var i = minutes.length - 1; i >= 0; i--) {
+        html += '<div class="list-group">';
+        for (var i = 0; i < minutes.length; i++) {
             var m = minutes[i];
             var signers = m.signers || [];
             var signedCount = 0;
@@ -617,30 +618,56 @@ function renderCommitteeSelect() {
                 if (committeeSigs.some(function(sig) { return sig.minuteId === m.id && sig.userId === signers[s]; })) signedCount++;
             }
             var allSigned = signedCount === signers.length && signers.length > 0;
-            var statusBadge = allSigned
-                ? '<span class="badge bg-success">서명완료</span>'
-                : '<span class="badge bg-warning text-dark">서명 ' + signedCount + '/' + signers.length + '</span>';
-            var fileIcon = m.fileData ? '<span class="badge bg-info me-1"><i class="bi bi-file-earmark"></i> 파일첨부</span>' : '';
+            var mySigned = committeeSigs.some(function(sig) { return sig.minuteId === m.id && sig.userId === currentUser.id; });
 
-            html += '<div class="card shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center">'
-                + '<div>'
-                + '<h5 class="fw-bold mb-1">' + (m.number ? m.number + ' ' : '') + m.title + ' ' + statusBadge + '</h5>'
-                + '<small class="text-muted">' + m.date + ' | ' + (m.agenda || '안건 없음') + '</small>'
-                + '<div class="mt-1">' + fileIcon + '</div>'
-                + '</div>'
-                + '<div class="d-flex gap-2">'
-                + '<button class="btn btn-primary main-btn" onclick="openCommitteeMinute(\'' + m.id + '\')">'
-                + '<i class="bi bi-journal-text"></i> 서명하기</button>';
-            if (isAdmin()) {
-                html += '<button class="btn btn-outline-danger btn-sm" onclick="if(confirm(\'삭제하시겠습니까?\')) deleteCommitteeMinute(\'' + m.id + '\')"><i class="bi bi-trash"></i></button>';
+            var statusBadge = allSigned
+                ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> 서명완료</span>'
+                : '<span class="badge bg-warning text-dark"><i class="bi bi-pen"></i> 서명 ' + signedCount + '/' + signers.length + '</span>';
+            var myBadge = mySigned
+                ? '<span class="badge bg-success ms-1">내 서명완료</span>'
+                : '<span class="badge bg-danger ms-1">서명필요</span>';
+
+            var fileType = '';
+            if (m.fileData) {
+                if (m.fileData.startsWith('data:image')) fileType = '<i class="bi bi-file-image text-success"></i>';
+                else if (m.fileData.startsWith('data:application/pdf')) fileType = '<i class="bi bi-file-pdf text-danger"></i>';
+                else fileType = '<i class="bi bi-file-earmark text-primary"></i>';
             }
-            html += '</div></div></div>';
+
+            html += '<div class="list-group-item list-group-item-action p-0 mb-2 rounded shadow-sm" style="cursor:pointer;" onclick="openCommitteeMinute(\'' + m.id + '\')">'
+                + '<div class="d-flex align-items-center p-3">'
+                // 순번
+                + '<div class="text-center me-3" style="min-width:40px;">'
+                + '<span class="badge bg-dark rounded-circle fs-6">' + (i + 1) + '</span></div>'
+                // 파일 아이콘
+                + '<div class="me-3 fs-3">' + (fileType || '<i class="bi bi-file-text text-muted"></i>') + '</div>'
+                // 내용
+                + '<div class="flex-grow-1">'
+                + '<h6 class="fw-bold mb-1">' + (m.number ? m.number + ' ' : '') + m.title + '</h6>'
+                + '<small class="text-muted">' + m.date;
+            if (m.agenda) html += ' | ' + m.agenda;
+            if (m.fileName) html += ' | <span class="text-primary">' + m.fileName + '</span>';
+            html += '</small>'
+                + '<div class="mt-1">' + statusBadge + myBadge + '</div>'
+                + '</div>'
+                // 화살표
+                + '<div class="ms-3 text-muted"><i class="bi bi-chevron-right fs-4"></i></div>'
+                + '</div>';
+
+            // 관리자 삭제 버튼
+            if (isAdmin()) {
+                html += '<div class="border-top px-3 py-1 text-end" onclick="event.stopPropagation();">'
+                    + '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); if(confirm(\'삭제하시겠습니까?\')) deleteCommitteeMinute(\'' + m.id + '\')"><i class="bi bi-trash"></i> 삭제</button>'
+                    + '</div>';
+            }
+            html += '</div>';
         }
+        html += '</div>';
     }
 
     el.innerHTML = html;
 
-    // 위원 체크박스 렌더링
+    // 관리자 폼 초기화
     if (isAdmin()) {
         var checkDiv = document.getElementById('cmSignerCheckboxes');
         if (checkDiv) {
@@ -653,7 +680,6 @@ function renderCommitteeSelect() {
             checkDiv.innerHTML = usersHtml;
         }
 
-        // 폼 이벤트
         var form = document.getElementById('committeeMinutesForm');
         if (form) {
             form.onsubmit = function(e) {
@@ -665,42 +691,32 @@ function renderCommitteeSelect() {
                 var signers = [];
                 var checks = document.querySelectorAll('#cmSignerCheckboxes input:checked');
                 for (var c = 0; c < checks.length; c++) signers.push(checks[c].value);
-
-                if (!title || !date || !signers.length) {
-                    showAlert('회의명, 일자, 서명 대상을 입력해주세요.', 'warning');
-                    return;
-                }
-
                 var fileInput = document.getElementById('cmFile');
                 var file = fileInput.files[0];
 
-                function saveMinute(fileData, fileName) {
+                if (!title || !date || !signers.length) {
+                    showAlert('회의명, 일자, 서명 대상을 입력해주세요.', 'warning'); return;
+                }
+                if (!file) {
+                    showAlert('회의록 파일을 첨부해주세요.', 'warning'); return;
+                }
+
+                var reader = new FileReader();
+                reader.onload = function(ev) {
                     var mins = getDB('committee_minutes') || [];
                     mins.push({
                         id: Date.now().toString(),
-                        title: title,
-                        date: date,
-                        number: number,
-                        agenda: agenda,
+                        title: title, date: date, number: number, agenda: agenda,
                         signers: signers,
-                        fileData: fileData || null,
-                        fileName: fileName || null,
+                        fileData: ev.target.result,
+                        fileName: file.name,
                         createdAt: new Date().toISOString()
                     });
                     setDB('committee_minutes', mins);
-                    showAlert('회의록이 등록되었습니다!', 'success');
+                    showAlert((number ? number + ' ' : '') + title + ' 회의록이 등록되었습니다!', 'success');
                     renderCommitteeSelect();
-                }
-
-                if (file) {
-                    var reader = new FileReader();
-                    reader.onload = function(ev) {
-                        saveMinute(ev.target.result, file.name);
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    saveMinute(null, null);
-                }
+                };
+                reader.readAsDataURL(file);
             };
         }
     }
@@ -709,7 +725,6 @@ function renderCommitteeSelect() {
 function deleteCommitteeMinute(id) {
     var mins = (getDB('committee_minutes') || []).filter(function(m) { return m.id !== id; });
     setDB('committee_minutes', mins);
-    // 관련 서명도 삭제
     var sigs = (getDB('committee_signatures') || []).filter(function(s) { return s.minuteId !== id; });
     setDB('committee_signatures', sigs);
     showAlert('회의록이 삭제되었습니다.', 'info');
@@ -755,51 +770,57 @@ function openCommitteeMinute(minuteId) {
         var mySig = committeeSigs.find(function(s) { return s.minuteId === minuteId && s.userId === currentUser.id; });
 
         var html = ''
-            + '<a href="#" onclick="showPage(\'committee_select\')" class="text-muted"><i class="bi bi-arrow-left"></i> 뒤로</a>'
+            + '<a href="#" onclick="showPage(\'committee_select\')" class="text-muted"><i class="bi bi-arrow-left"></i> 회의록 목록</a>'
             + '<div class="eval-header mt-2 mb-0">'
             + '<h4 class="mb-0"><i class="bi bi-journal-text"></i> ' + (m.number ? m.number + ' ' : '') + m.title + '</h4>'
-            + '<small>' + m.date + '</small></div>'
+            + '<small>' + m.date + (m.agenda ? ' | ' + m.agenda : '') + '</small></div>'
             + '<div class="card shadow-sm rounded-top-0 mb-4"><div class="card-body p-4">';
 
-        // 회의 정보
-        html += '<h5 class="fw-bold mb-3 border-bottom pb-2">회의 정보</h5>'
-            + '<table class="table table-bordered mb-4">'
-            + '<tr><th class="table-light" style="width:25%">회의명</th><td>' + (m.number ? m.number + ' ' : '') + m.title + '</td></tr>'
-            + '<tr><th class="table-light">회의일자</th><td>' + m.date + '</td></tr>'
-            + '<tr><th class="table-light">안건</th><td>' + (m.agenda || '-') + '</td></tr>'
-            + '</table>';
+        // STEP 1: 회의록 내용 확인
+        html += '<div class="d-flex align-items-center mb-3">'
+            + '<span class="badge bg-primary rounded-circle me-2 fs-6">1</span>'
+            + '<h5 class="fw-bold mb-0">회의록 내용 확인</h5></div>';
 
-        // 첨부 파일
         if (m.fileData) {
-            html += '<h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-file-earmark"></i> 첨부 회의록</h5>'
-                + '<div class="mb-4">';
             if (m.fileData.startsWith('data:image')) {
-                html += '<img src="' + m.fileData + '" alt="회의록" class="img-fluid border rounded" style="max-width:100%;">';
+                html += '<div class="border rounded p-2 mb-4 bg-white text-center">'
+                    + '<img src="' + m.fileData + '" alt="회의록" class="img-fluid" style="max-width:100%;">'
+                    + '</div>';
             } else if (m.fileData.startsWith('data:application/pdf')) {
-                html += '<embed src="' + m.fileData + '" type="application/pdf" width="100%" height="600px" class="border rounded">';
+                html += '<div class="mb-4">'
+                    + '<embed src="' + m.fileData + '" type="application/pdf" width="100%" height="700px" class="border rounded">'
+                    + '<div class="mt-2"><a href="' + m.fileData + '" download="' + (m.fileName || '회의록.pdf') + '" class="btn btn-outline-primary btn-sm"><i class="bi bi-download"></i> PDF 다운로드</a></div>'
+                    + '</div>';
             } else {
-                html += '<a href="' + m.fileData + '" download="' + (m.fileName || '회의록') + '" class="btn btn-outline-primary"><i class="bi bi-download"></i> ' + (m.fileName || '파일 다운로드') + '</a>';
+                html += '<div class="mb-4"><a href="' + m.fileData + '" download="' + (m.fileName || '회의록') + '" class="btn btn-outline-primary"><i class="bi bi-download"></i> ' + (m.fileName || '파일 다운로드') + '</a></div>';
             }
-            html += '</div>';
+        } else {
+            html += '<div class="alert alert-secondary mb-4">첨부된 파일이 없습니다.</div>';
         }
 
-        // 서명 현황
-        html += '<h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-pen"></i> 위원 서명 현황 (' + signedCount + '/' + m.signers.length + ')</h5>'
+        // STEP 2: 서명 현황
+        html += '<div class="d-flex align-items-center mb-3">'
+            + '<span class="badge bg-primary rounded-circle me-2 fs-6">2</span>'
+            + '<h5 class="fw-bold mb-0">서명 현황 (' + signedCount + '/' + m.signers.length + ')</h5></div>'
             + '<div class="row mb-4">' + sigCards + '</div>';
 
-        // 서명 입력
+        // STEP 3: 서명
         if (isSigner) {
-            html += '<h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-pen"></i> 내 서명</h5>'
-                + '<p class="text-muted small mb-2">아래 영역에 마우스 또는 터치로 서명해주세요.</p>'
+            html += '<div class="d-flex align-items-center mb-3">'
+                + '<span class="badge bg-primary rounded-circle me-2 fs-6">3</span>'
+                + '<h5 class="fw-bold mb-0">서명하기</h5></div>'
+                + '<p class="text-muted small mb-2">위 회의록 내용을 확인하신 후, 아래에 자필 서명해주세요.</p>'
                 + '<div class="sig-canvas-wrap mb-3" style="width:100%;max-width:500px;">'
                 + '<canvas id="committeeCanvas" width="500" height="200"></canvas>'
                 + '<span class="sig-placeholder" id="committeePlaceholder">여기에 서명하세요</span></div>'
                 + '<div class="d-flex gap-2 mb-4">'
                 + '<button class="btn btn-outline-secondary" onclick="clearCommitteeSignature()"><i class="bi bi-eraser"></i> 다시 쓰기</button>'
-                + '<button class="btn btn-primary main-btn" onclick="saveCommitteeMinuteSignature(\'' + minuteId + '\')"><i class="bi bi-check-lg"></i> 서명 저장</button></div>';
+                + '<button class="btn btn-primary main-btn btn-lg" onclick="saveCommitteeMinuteSignature(\'' + minuteId + '\')"><i class="bi bi-check-lg"></i> 확인 및 서명 저장</button></div>';
             if (mySig) {
                 html += '<div class="alert alert-success"><i class="bi bi-check-circle"></i> 서명이 등록되어 있습니다. 다시 서명하면 교체됩니다.</div>';
             }
+        } else {
+            html += '<div class="alert alert-secondary">서명 대상이 아닙니다.</div>';
         }
 
         if (allSigned) {
