@@ -419,11 +419,53 @@ function showMinutes(ivId) {
 // --- 사용자 관리 ---
 function renderUsers() {
     const users = getUsers();
-    let html = '<table class="table table-hover mb-0"><thead class="table-light"><tr><th>아이디</th><th>이름</th><th>역할</th><th>삭제</th></tr></thead><tbody>';
+    const interviews = getInterviews();
+    const evals = getEvaluations();
+    const signatures = getDB('signatures') || [];
+
+    let html = '<table class="table table-hover mb-0"><thead class="table-light"><tr><th>아이디</th><th>이름</th><th>역할</th><th>평가현황</th><th>서명</th><th>삭제</th></tr></thead><tbody>';
     users.forEach(u => {
-        html += `<tr><td>${u.id}</td><td class="fw-bold">${u.name}</td>
-            <td>${u.role === 'admin' ? '<span class="badge bg-warning text-dark">관리자</span>' : '<span class="badge bg-info">심사위원</span>'}</td>
-            <td>${u.id !== currentUser.id ? `<button class="btn btn-sm btn-outline-danger" onclick="if(confirm('삭제하시겠습니까?')){deleteUser('${u.id}');renderUsers();}"><i class="bi bi-trash"></i></button>` : '<span class="text-muted">본인</span>'}</td></tr>`;
+        // 평가 현황 계산
+        let evalStatus = '';
+        if (u.role === 'judge') {
+            let totalApplicants = 0;
+            let submittedCount = 0;
+            interviews.forEach(iv => {
+                if (iv.judges && iv.judges.includes(u.id)) {
+                    totalApplicants += iv.applicants.length;
+                    iv.applicants.forEach(app => {
+                        var submitted = evals.find(e => e.interviewId === iv.id && e.applicantId === app.id && e.judgeId === u.id && e.status === 'submitted');
+                        if (submitted) submittedCount++;
+                    });
+                }
+            });
+            if (totalApplicants === 0) {
+                evalStatus = '<span class="text-muted small">배정없음</span>';
+            } else if (submittedCount === totalApplicants) {
+                evalStatus = '<span class="badge bg-success">완료 (' + submittedCount + '/' + totalApplicants + ')</span>';
+            } else {
+                evalStatus = '<span class="badge bg-warning text-dark">진행중 (' + submittedCount + '/' + totalApplicants + ')</span>';
+            }
+        } else {
+            evalStatus = '<span class="text-muted small">-</span>';
+        }
+
+        // 서명 현황
+        let sigStatus = '';
+        if (u.role === 'judge' || u.role === 'admin') {
+            var userSigs = signatures.filter(s => s.userId === u.id);
+            if (userSigs.length > 0) {
+                sigStatus = '<span class="badge bg-success"><i class="bi bi-check"></i> ' + userSigs.length + '건</span>';
+            } else {
+                sigStatus = '<span class="badge bg-secondary">미서명</span>';
+            }
+        }
+
+        html += '<tr><td>' + u.id + '</td><td class="fw-bold">' + u.name + '</td>'
+            + '<td>' + (u.role === 'admin' ? '<span class="badge bg-warning text-dark">관리자</span>' : '<span class="badge bg-info">심사위원</span>') + '</td>'
+            + '<td>' + evalStatus + '</td>'
+            + '<td>' + sigStatus + '</td>'
+            + '<td>' + (u.id !== currentUser.id ? '<button class="btn btn-sm btn-outline-danger" onclick="if(confirm(\'삭제하시겠습니까?\')){deleteUser(\'' + u.id + '\');renderUsers();}"><i class="bi bi-trash"></i></button>' : '<span class="text-muted">본인</span>') + '</td></tr>';
     });
     html += '</tbody></table>';
     document.getElementById('userTable').innerHTML = html;
@@ -476,89 +518,93 @@ let sigCtx = null;
 let sigDrawing = false;
 
 function openSignaturePage(ivId) {
-    const iv = getInterviews().find(i => i.id === ivId);
-    if (!iv) return;
-    currentInterview = iv;
+    try {
+        var iv = getInterviews().find(function(i) { return i.id === ivId; });
+        if (!iv) { showAlert('면접을 찾을 수 없습니다.', 'danger'); return; }
+        currentInterview = iv;
 
-    const signatures = getDB('signatures') || [];
-    const mySig = signatures.find(s => s.interviewId === ivId && s.userId === currentUser.id);
-    const judges = getUsers().filter(u => iv.judges.includes(u.id));
-    const admin = getUsers().find(u => u.role === 'admin');
-    const allSigners = admin ? [admin, ...judges] : judges;
+        var signatures = getDB('signatures') || [];
+        var mySig = signatures.find(function(s) { return s.interviewId === ivId && s.userId === currentUser.id; });
+        var judges = getUsers().filter(function(u) { return iv.judges.includes(u.id); });
+        var admin = getUsers().find(function(u) { return u.role === 'admin'; });
+        var allSigners = admin ? [admin].concat(judges) : judges;
 
-    let html = `
-    <a href="#" onclick="showPage('evaluate_select')" class="text-muted"><i class="bi bi-arrow-left"></i> 뒤로</a>
-    <div class="eval-header mt-2 mb-0">
-        <h4 class="mb-0"><i class="bi bi-pen"></i> 심사위원 서명</h4>
-        <small>${iv.title} | ${iv.date}</small>
-    </div>
-    <div class="card shadow-sm rounded-top-0 mb-4">
-        <div class="card-body p-4">
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> 모든 평가가 완료되었습니다. 아래에 자필 서명을 해주세요.
-            </div>
+        // 서명 현황 카드 생성
+        var signerCards = '';
+        for (var i = 0; i < allSigners.length; i++) {
+            var signer = allSigners[i];
+            var sig = null;
+            for (var j = 0; j < signatures.length; j++) {
+                if (signatures[j].interviewId === ivId && signatures[j].userId === signer.id) {
+                    sig = signatures[j]; break;
+                }
+            }
+            var headerClass = sig ? 'bg-success' : 'bg-secondary';
+            var borderClass = sig ? 'border-success' : 'border-secondary';
+            var bodyContent = sig
+                ? '<img src="' + sig.dataUrl + '" alt="서명" style="max-height:70px;max-width:180px;">'
+                : '<span class="text-muted small">미서명</span>';
+            var footerHtml = sig
+                ? '<div class="card-footer text-center py-1"><small class="text-muted">' + new Date(sig.timestamp).toLocaleString('ko-KR') + '</small></div>'
+                : '';
 
-            <!-- 서명 현황 -->
-            <h5 class="fw-bold mb-3 border-bottom pb-2">서명 현황</h5>
-            <div class="row mb-4">
-                ${allSigners.map(signer => {
-                    const sig = signatures.find(s => s.interviewId === ivId && s.userId === signer.id);
-                    return `
-                    <div class="col-md-4 col-lg-3 mb-3">
-                        <div class="card ${sig ? 'border-success' : 'border-secondary'}">
-                            <div class="card-header ${sig ? 'bg-success' : 'bg-secondary'} text-white text-center py-2">
-                                <small class="fw-bold">${signer.name}</small>
-                            </div>
-                            <div class="card-body sig-preview p-2">
-                                ${sig
-                                    ? `<img src="${sig.dataUrl}" alt="서명"><br>`
-                                    : '<span class="text-muted small">미서명</span>'}
-                            </div>
-                            ${sig ? `<div class="card-footer text-center py-1"><small class="text-muted">${new Date(sig.timestamp).toLocaleString('ko-KR')}</small></div>` : ''}
-                        </div>
-                    </div>`;
-                }).join('')}
-            </div>
+            signerCards += '<div class="col-md-4 col-lg-3 mb-3">'
+                + '<div class="card ' + borderClass + '">'
+                + '<div class="card-header ' + headerClass + ' text-white text-center py-2"><small class="fw-bold">' + signer.name + '</small></div>'
+                + '<div class="card-body sig-preview p-2">' + bodyContent + '</div>'
+                + footerHtml
+                + '</div></div>';
+        }
 
-            <!-- 내 서명 입력 -->
-            <h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-pen"></i> 내 서명</h5>
-            <p class="text-muted small mb-2">아래 영역에 마우스 또는 터치로 서명해주세요.</p>
+        // 모든 서명 완료 확인
+        var allSigned = true;
+        for (var k = 0; k < allSigners.length; k++) {
+            var found = false;
+            for (var m = 0; m < signatures.length; m++) {
+                if (signatures[m].interviewId === ivId && signatures[m].userId === allSigners[k].id) { found = true; break; }
+            }
+            if (!found) { allSigned = false; break; }
+        }
 
-            <div class="sig-canvas-wrap mb-3" style="width:100%;max-width:500px;">
-                <canvas id="sigCanvas" width="500" height="200"></canvas>
-                <span class="sig-placeholder" id="sigPlaceholder">여기에 서명하세요</span>
-            </div>
+        var mySigAlert = mySig
+            ? '<div class="alert alert-success"><i class="bi bi-check-circle"></i> 서명이 이미 등록되어 있습니다. 다시 서명하면 기존 서명이 교체됩니다.</div>'
+            : '';
 
-            <div class="d-flex gap-2 mb-4">
-                <button class="btn btn-outline-secondary" onclick="clearSignature()">
-                    <i class="bi bi-eraser"></i> 다시 쓰기
-                </button>
-                <button class="btn btn-primary main-btn" onclick="saveSignature('${ivId}')">
-                    <i class="bi bi-check-lg"></i> 서명 저장
-                </button>
-            </div>
+        var allSignedAlert = allSigned
+            ? '<div class="alert alert-success mt-3"><i class="bi bi-check-circle-fill"></i> <strong>모든 서명이 완료되었습니다!</strong> <button class="btn btn-success ms-3" onclick="showResults(\'' + ivId + '\')"><i class="bi bi-file-text"></i> 결과/회의록 보기</button></div>'
+            : '';
 
-            ${mySig ? '<div class="alert alert-success"><i class="bi bi-check-circle"></i> 서명이 이미 등록되어 있습니다. 다시 서명하면 기존 서명이 교체됩니다.</div>' : ''}
+        var html = ''
+            + '<a href="#" onclick="showPage(\'evaluate_select\')" class="text-muted"><i class="bi bi-arrow-left"></i> 뒤로</a>'
+            + '<div class="eval-header mt-2 mb-0">'
+            + '<h4 class="mb-0"><i class="bi bi-pen"></i> 심사위원 서명</h4>'
+            + '<small>' + iv.title + ' | ' + iv.date + '</small>'
+            + '</div>'
+            + '<div class="card shadow-sm rounded-top-0 mb-4"><div class="card-body p-4">'
+            + '<div class="alert alert-info"><i class="bi bi-info-circle"></i> 평가가 완료되었습니다. 아래에 자필 서명을 해주세요.</div>'
+            + '<h5 class="fw-bold mb-3 border-bottom pb-2">서명 현황</h5>'
+            + '<div class="row mb-4">' + signerCards + '</div>'
+            + '<h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-pen"></i> 내 서명</h5>'
+            + '<p class="text-muted small mb-2">아래 영역에 마우스 또는 터치로 서명해주세요.</p>'
+            + '<div class="sig-canvas-wrap mb-3" style="width:100%;max-width:500px;">'
+            + '<canvas id="sigCanvas" width="500" height="200"></canvas>'
+            + '<span class="sig-placeholder" id="sigPlaceholder">여기에 서명하세요</span>'
+            + '</div>'
+            + '<div class="d-flex gap-2 mb-4">'
+            + '<button class="btn btn-outline-secondary" onclick="clearSignature()"><i class="bi bi-eraser"></i> 다시 쓰기</button>'
+            + '<button class="btn btn-primary main-btn" onclick="saveSignature(\'' + ivId + '\')"><i class="bi bi-check-lg"></i> 서명 저장</button>'
+            + '</div>'
+            + mySigAlert
+            + allSignedAlert
+            + '</div></div>';
 
-            <!-- 회의록 이동 -->
-            ${(() => {
-                const allSigned = allSigners.every(s => signatures.some(sig => sig.interviewId === ivId && sig.userId === s.id));
-                return allSigned ? `
-                <div class="alert alert-success mt-3">
-                    <i class="bi bi-check-circle-fill"></i> <strong>모든 서명이 완료되었습니다!</strong>
-                    <button class="btn btn-success ms-3" onclick="showMinutes('${ivId}')">
-                        <i class="bi bi-file-text"></i> 회의록 보기
-                    </button>
-                </div>` : '';
-            })()}
-        </div>
-    </div>`;
-
-    document.getElementById('signatureContent').innerHTML = html;
-    showPage('signature');
-
-    // 캔버스 초기화
-    setTimeout(initSignatureCanvas, 100);
+        document.getElementById('signatureContent').innerHTML = html;
+        showPage('signature');
+        setTimeout(initSignatureCanvas, 200);
+    } catch(err) {
+        console.error('서명 페이지 오류:', err);
+        showAlert('서명 페이지 로드 중 오류가 발생했습니다: ' + err.message, 'danger');
+    }
 }
 
 function initSignatureCanvas() {
