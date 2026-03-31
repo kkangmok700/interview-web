@@ -351,69 +351,222 @@ function submitEval(status) {
 }
 
 // --- 결과 ---
-function showResults(ivId) {
-    const iv = getInterviews().find(i => i.id === ivId);
-    if (!iv) return;
-    const evals = getEvaluations().filter(e => e.interviewId === ivId && e.status === 'submitted');
-    const judges = getUsers().filter(u => iv.judges.includes(u.id));
+function getScoreLabel(criterionId, score) {
+    var c = EVAL_CRITERIA.find(function(x) { return x.id === criterionId; });
+    if (!c) return '';
+    var idx = c.scores.indexOf(score);
+    return idx >= 0 ? c.labels[idx] : '';
+}
 
-    let results = iv.applicants.map(app => {
-        const appEvals = evals.filter(e => e.applicantId === app.id);
-        const avg = appEvals.length ? appEvals.reduce((s, e) => s + e.total, 0) / appEvals.length : 0;
-        return { app, evals: appEvals, avg: Math.round(avg * 100) / 100, complete: appEvals.length === judges.length };
+function buildResultsData(iv) {
+    var evals = getEvaluations().filter(function(e) { return e.interviewId === iv.id && e.status === 'submitted'; });
+    var judges = getUsers().filter(function(u) { return iv.judges.includes(u.id); });
+
+    var results = iv.applicants.map(function(app) {
+        var appEvals = evals.filter(function(e) { return e.applicantId === app.id; });
+        var avg = appEvals.length ? appEvals.reduce(function(s, e) { return s + e.total; }, 0) / appEvals.length : 0;
+
+        // 항목별 평균 계산
+        var criteriaAvg = [];
+        for (var ci = 0; ci < EVAL_CRITERIA.length; ci++) {
+            var cId = EVAL_CRITERIA[ci].id;
+            var sum = 0;
+            var cnt = 0;
+            for (var ei = 0; ei < appEvals.length; ei++) {
+                sum += appEvals[ei]['score' + cId] || 0;
+                cnt++;
+            }
+            criteriaAvg.push(cnt > 0 ? Math.round(sum / cnt * 10) / 10 : 0);
+        }
+
+        return { app: app, evals: appEvals, avg: Math.round(avg * 100) / 100, criteriaAvg: criteriaAvg, complete: appEvals.length === judges.length };
     });
-    results.sort((a, b) => b.avg - a.avg);
+    results.sort(function(a, b) { return b.avg - a.avg; });
 
-    let passed = 0;
-    results.forEach(r => {
+    var passed = 0;
+    results.forEach(function(r) {
         if (r.complete && r.avg >= 70 && passed < iv.hireCount) { r.result = '합격'; passed++; }
         else if (r.complete && r.avg < 70) r.result = '탈락(기준미달)';
         else if (r.complete) r.result = '탈락(정원초과)';
         else r.result = '진행중';
     });
 
-    let html = `<h3 class="mb-4"><i class="bi bi-bar-chart"></i> ${iv.title} - 결과</h3>
-    <div class="table-responsive"><table class="table table-bordered text-center shadow-sm">
-    <thead class="table-dark"><tr><th>순위</th><th>지원자</th><th>분야</th>`;
-    judges.forEach(j => html += `<th>${j.name}</th>`);
-    html += `<th>평균</th><th>결과</th></tr></thead><tbody>`;
-    results.forEach((r, i) => {
-        const cls = r.result === '합격' ? 'table-success' : '';
-        html += `<tr class="${cls}"><td>${i + 1}</td><td class="fw-bold">${r.app.name}</td><td>${r.app.field}</td>`;
-        judges.forEach(j => {
-            const je = r.evals.find(e => e.judgeId === j.id);
-            html += `<td>${je ? je.total : '-'}</td>`;
-        });
-        html += `<td class="fw-bold fs-5 ${r.avg >= 70 ? 'text-success' : 'text-danger'}">${r.avg}</td>`;
-        html += `<td>${r.result === '합격' ? '<span class="badge bg-success fs-6">합격</span>' : r.result}</td></tr>`;
-    });
+    return { results: results, judges: judges, evals: evals };
+}
+
+function showResults(ivId) {
+    var iv = getInterviews().find(function(i) { return i.id === ivId; });
+    if (!iv) return;
+    var data = buildResultsData(iv);
+    var results = data.results;
+    var judges = data.judges;
+    var allComplete = results.length > 0 && results.every(function(r) { return r.complete; });
+
+    var html = '<div class="d-flex justify-content-between align-items-center mb-4">'
+        + '<h3><i class="bi bi-bar-chart"></i> ' + iv.title + ' - 결과</h3>'
+        + '<div>';
+
+    // 관리자 심사완료 버튼
+    if (isAdmin() && allComplete && iv.status !== 'completed') {
+        html += '<button class="btn btn-success me-2" onclick="completeInterview(\'' + ivId + '\')"><i class="bi bi-check-circle"></i> 심사완료</button>';
+    }
+    if (iv.status === 'completed') {
+        html += '<span class="badge bg-success fs-6 me-2"><i class="bi bi-check-circle"></i> 심사완료</span>';
+    }
+    html += '<button class="btn btn-outline-warning" onclick="openSignaturePage(\'' + ivId + '\')"><i class="bi bi-pen"></i> 서명</button>';
+    html += '</div></div>';
+
+    // 면접 정보
+    html += '<div class="alert alert-info"><strong>' + iv.title + '</strong> | ' + iv.date + ' | 채용인원: ' + iv.hireCount + '명 | 합격기준: 평균 70점 이상</div>';
+
+    // 종합 결과표
+    html += '<h5 class="fw-bold mb-3">종합 결과표</h5>';
+    html += '<div class="table-responsive mb-4"><table class="table table-bordered text-center shadow-sm">';
+    html += '<thead class="table-dark"><tr><th>순위</th><th>지원자</th><th>분야</th>';
+    for (var ji = 0; ji < judges.length; ji++) html += '<th>' + judges[ji].name + '</th>';
+    html += '<th>최종평균</th><th>결과</th></tr></thead><tbody>';
+
+    for (var ri = 0; ri < results.length; ri++) {
+        var r = results[ri];
+        var cls = r.result === '합격' ? 'table-success' : '';
+        html += '<tr class="' + cls + '"><td class="fw-bold">' + (ri + 1) + '</td><td class="fw-bold">' + r.app.name + '</td><td>' + r.app.field + '</td>';
+        for (var jj = 0; jj < judges.length; jj++) {
+            var je = r.evals.find(function(e) { return e.judgeId === judges[jj].id; });
+            html += '<td>' + (je ? je.total : '-') + '</td>';
+        }
+        var avgClass = r.avg >= 70 ? 'text-success' : 'text-danger';
+        html += '<td class="fw-bold fs-5 ' + avgClass + '">' + r.avg + '</td>';
+        html += '<td>' + (r.result === '합격' ? '<span class="badge bg-success fs-6">합격</span>' : (r.result === '진행중' ? '<span class="badge bg-warning text-dark">진행중</span>' : '<span class="badge bg-secondary">' + r.result + '</span>')) + '</td></tr>';
+    }
     html += '</tbody></table></div>';
+
+    // 항목별 평균 점수표
+    html += '<h5 class="fw-bold mb-3">항목별 평균 점수</h5>';
+    html += '<div class="table-responsive mb-4"><table class="table table-bordered text-center shadow-sm">';
+    html += '<thead class="table-dark"><tr><th>지원자</th>';
+    for (var ci = 0; ci < EVAL_CRITERIA.length; ci++) {
+        html += '<th>' + EVAL_CRITERIA[ci].name + '<br><small>(' + EVAL_CRITERIA[ci].maxScore + '점)</small></th>';
+    }
+    html += '<th>합계</th></tr></thead><tbody>';
+    for (var ri2 = 0; ri2 < results.length; ri2++) {
+        var r2 = results[ri2];
+        html += '<tr><td class="fw-bold">' + r2.app.name + '</td>';
+        for (var ci2 = 0; ci2 < EVAL_CRITERIA.length; ci2++) {
+            var cavg = r2.criteriaAvg[ci2];
+            var maxS = EVAL_CRITERIA[ci2].maxScore;
+            var pct = maxS > 0 ? (cavg / maxS * 100) : 0;
+            var color = pct >= 80 ? 'text-success' : (pct >= 60 ? 'text-warning' : 'text-danger');
+            html += '<td class="' + color + ' fw-bold">' + cavg + '</td>';
+        }
+        html += '<td class="fw-bold fs-5">' + r2.avg + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+
+    // 지원자별 상세 (심사위원 점수 + 의견)
+    html += '<h5 class="fw-bold mb-3">지원자별 상세 평가</h5>';
+    for (var ri3 = 0; ri3 < results.length; ri3++) {
+        var r3 = results[ri3];
+        var resultBadge = r3.result === '합격' ? '<span class="badge bg-success">합격</span>'
+            : (r3.result === '진행중' ? '<span class="badge bg-warning text-dark">진행중</span>'
+            : '<span class="badge bg-secondary">' + r3.result + '</span>');
+
+        html += '<div class="card shadow-sm mb-4">'
+            + '<div class="card-header d-flex justify-content-between align-items-center">'
+            + '<div><strong class="fs-5">' + r3.app.name + '</strong> <small class="text-muted">(' + r3.app.field + ')</small></div>'
+            + '<div>평균: <strong class="fs-5 ' + (r3.avg >= 70 ? 'text-success' : 'text-danger') + '">' + r3.avg + '점</strong> ' + resultBadge + '</div>'
+            + '</div><div class="card-body p-0">';
+
+        // 항목별 점수 테이블
+        html += '<div class="table-responsive"><table class="table table-sm table-bordered text-center mb-0">';
+        html += '<thead class="table-light"><tr><th>심사위원</th>';
+        for (var ci3 = 0; ci3 < EVAL_CRITERIA.length; ci3++) {
+            html += '<th>' + EVAL_CRITERIA[ci3].name + '<br><small>(' + EVAL_CRITERIA[ci3].maxScore + '점)</small></th>';
+        }
+        html += '<th>합계</th><th>판정</th></tr></thead><tbody>';
+
+        for (var jk = 0; jk < judges.length; jk++) {
+            var judge = judges[jk];
+            var jeval = r3.evals.find(function(e) { return e.judgeId === judge.id; });
+            html += '<tr><td class="fw-bold">' + judge.name + '</td>';
+            if (jeval) {
+                for (var ci4 = 0; ci4 < EVAL_CRITERIA.length; ci4++) {
+                    var sc = jeval['score' + EVAL_CRITERIA[ci4].id];
+                    var lbl = getScoreLabel(EVAL_CRITERIA[ci4].id, sc);
+                    html += '<td>' + sc + ' <small class="text-muted">(' + lbl + ')</small></td>';
+                }
+                html += '<td class="fw-bold">' + jeval.total + '</td>';
+                var jdg = jeval.judgment === 'pass' ? '<span class="text-success fw-bold">합격</span>'
+                    : (jeval.judgment === 'hold' ? '<span class="text-warning fw-bold">보류</span>'
+                    : (jeval.judgment === 'fail' ? '<span class="text-danger fw-bold">불합격</span>' : '-'));
+                html += '<td>' + jdg + '</td>';
+            } else {
+                html += '<td colspan="' + (EVAL_CRITERIA.length + 2) + '" class="text-muted">미평가</td>';
+            }
+            html += '</tr>';
+        }
+        html += '</tbody></table></div>';
+
+        // 심사위원 의견 (멘트)
+        var hasComments = r3.evals.some(function(e) { return e.comment && e.comment.trim(); });
+        if (hasComments) {
+            html += '<div class="p-3 border-top">';
+            html += '<h6 class="fw-bold mb-2"><i class="bi bi-chat-quote"></i> 심사위원 의견</h6>';
+            for (var jm = 0; jm < judges.length; jm++) {
+                var jeval2 = r3.evals.find(function(e) { return e.judgeId === judges[jm].id; });
+                if (jeval2 && jeval2.comment && jeval2.comment.trim()) {
+                    html += '<div class="mb-2 p-2 bg-light rounded">'
+                        + '<strong class="text-primary">' + judges[jm].name + ':</strong> '
+                        + '<span>' + jeval2.comment.replace(/\n/g, '<br>') + '</span>'
+                        + '</div>';
+                }
+            }
+            html += '</div>';
+        }
+
+        html += '</div></div>';
+    }
 
     document.getElementById('resultsDashboard').innerHTML = html;
     showPage('results_dashboard');
 }
 
+function completeInterview(ivId) {
+    if (!confirm('심사를 완료 처리하시겠습니까? 완료 후에도 결과를 확인할 수 있습니다.')) return;
+    var interviews = getInterviews();
+    var iv = interviews.find(function(i) { return i.id === ivId; });
+    if (iv) {
+        iv.status = 'completed';
+        setDB('interviews', interviews);
+        showAlert('심사가 완료 처리되었습니다!', 'success');
+        showResults(ivId);
+    }
+}
+
 function renderResultsDashboard() {
-    const interviews = getInterviews();
+    var interviews = getInterviews();
     if (!interviews.length) {
         document.getElementById('resultsDashboard').innerHTML = '<div class="text-center py-5 text-muted"><p>등록된 면접이 없습니다.</p></div>';
         return;
     }
-    let html = '';
-    interviews.forEach(iv => {
-        html += `<div class="card shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center">
-            <div><h5 class="fw-bold mb-1">${iv.title}</h5><small class="text-muted">${iv.date}</small></div>
-            <button class="btn btn-info text-white" onclick="showResults('${iv.id}')"><i class="bi bi-bar-chart"></i> 결과 보기</button>
-        </div></div>`;
-    });
+    var html = '';
+    for (var i = 0; i < interviews.length; i++) {
+        var iv = interviews[i];
+        var statusBadge = iv.status === 'completed'
+            ? '<span class="badge bg-success me-2">완료</span>'
+            : '<span class="badge bg-warning text-dark me-2">진행중</span>';
+        html += '<div class="card shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center">'
+            + '<div><h5 class="fw-bold mb-1">' + statusBadge + iv.title + '</h5><small class="text-muted">' + iv.date + ' | 채용 ' + iv.hireCount + '명</small></div>'
+            + '<button class="btn btn-info text-white" onclick="showResults(\'' + iv.id + '\')"><i class="bi bi-bar-chart"></i> 결과 보기</button>'
+            + '</div></div>';
+    }
     document.getElementById('resultsDashboard').innerHTML = html;
 }
 
 // --- 회의록 ---
 function showMinutes(ivId) {
-    const iv = getInterviews().find(i => i.id === ivId);
+    var iv = getInterviews().find(function(i) { return i.id === ivId; });
     if (!iv) return;
-    showResults(ivId); // 결과와 동일하게 표시
+    showResults(ivId);
 }
 
 // --- 사용자 관리 ---
