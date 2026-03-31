@@ -597,7 +597,6 @@ function renderCommitteeSelect() {
             + '<div class="col-md-3"><label class="form-label fw-bold">회의일자 *</label><input type="date" class="form-control" id="cmDate" required></div>'
             + '<div class="col-md-3"><label class="form-label fw-bold">회의록 파일 *</label><input type="file" class="form-control" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp" required></div>'
             + '</div>'
-            + '<div class="mb-3"><label class="form-label fw-bold">안건</label><textarea class="form-control" id="cmAgenda" rows="2" placeholder="회의 안건을 입력하세요"></textarea></div>'
             + '<div class="mb-3"><label class="form-label fw-bold">서명 대상 위원 *</label><div id="cmSignerCheckboxes"></div></div>'
             + '<button type="submit" class="btn btn-primary main-btn"><i class="bi bi-upload"></i> 회의록 등록</button>'
             + '</form></div></div>';
@@ -645,7 +644,6 @@ function renderCommitteeSelect() {
                 + '<div class="flex-grow-1">'
                 + '<h6 class="fw-bold mb-1">' + (m.number ? m.number + ' ' : '') + m.title + '</h6>'
                 + '<small class="text-muted">' + m.date;
-            if (m.agenda) html += ' | ' + m.agenda;
             if (m.fileName) html += ' | <span class="text-primary">' + m.fileName + '</span>';
             html += '</small>'
                 + '<div class="mt-1">' + statusBadge + myBadge + '</div>'
@@ -687,7 +685,7 @@ function renderCommitteeSelect() {
                 var title = document.getElementById('cmTitle').value.trim();
                 var date = document.getElementById('cmDate').value;
                 var number = document.getElementById('cmNumber').value.trim();
-                var agenda = document.getElementById('cmAgenda').value.trim();
+                var agenda = '';
                 var signers = [];
                 var checks = document.querySelectorAll('#cmSignerCheckboxes input:checked');
                 for (var c = 0; c < checks.length; c++) signers.push(checks[c].value);
@@ -773,7 +771,7 @@ function openCommitteeMinute(minuteId) {
             + '<a href="#" onclick="showPage(\'committee_select\')" class="text-muted"><i class="bi bi-arrow-left"></i> 회의록 목록</a>'
             + '<div class="eval-header mt-2 mb-0">'
             + '<h4 class="mb-0"><i class="bi bi-journal-text"></i> ' + (m.number ? m.number + ' ' : '') + m.title + '</h4>'
-            + '<small>' + m.date + (m.agenda ? ' | ' + m.agenda : '') + '</small></div>'
+            + '<small>' + m.date + '</small></div>'
             + '<div class="card shadow-sm rounded-top-0 mb-4"><div class="card-body p-4">';
 
         // STEP 1: 회의록 내용 확인
