@@ -84,96 +84,87 @@
 
         <!-- ===== 대시보드 ===== -->
         <div id="page-dashboard" class="page">
-            <div class="text-center mb-5">
-                <p class="text-muted fs-5">아래 메뉴에서 원하는 기능을 선택하세요.</p>
+            <div class="text-center mb-4">
+                <p class="text-muted fs-5">안건을 선택하세요.</p>
             </div>
 
-            <!-- 1행: 운영위원회 회의록 서명 + 심사평가 서명 -->
+            <!-- 안건 1: 운영위원회 회의록 -->
             <div class="row justify-content-center mb-4">
-                <div class="col-md-5 mb-4">
-                    <div class="card menu-card h-100 shadow-sm border-start border-4 border-warning" onclick="showPage('committee_select')" role="button">
+                <div class="col-md-10">
+                    <div class="card menu-card shadow-sm border-start border-4 border-warning" onclick="showPage('committee_select')" role="button">
                         <div class="card-body d-flex align-items-center p-4">
+                            <div class="me-4 text-center" style="min-width:50px;">
+                                <span class="badge bg-warning text-dark fs-5">1</span>
+                            </div>
                             <div class="menu-icon bg-warning-subtle text-warning rounded-circle me-4">
                                 <i class="bi bi-journal-text fs-3"></i>
                             </div>
-                            <div>
-                                <h5 class="fw-bold mb-1">운영위원회 회의록 서명</h5>
-                                <p class="text-muted mb-0 small">산학협력단 운영위원회 의결 회의록에 자필 서명합니다.</p>
+                            <div class="flex-grow-1">
+                                <h5 class="fw-bold mb-1">운영위원회 회의록</h5>
+                                <p class="text-muted mb-0 small">회의록 파일 업로드, 내용 확인 및 위원 서명</p>
                             </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-5 mb-4">
-                    <div class="card menu-card h-100 shadow-sm border-start border-4 border-info" onclick="showPage('eval_sig_select')" role="button">
-                        <div class="card-body d-flex align-items-center p-4">
-                            <div class="menu-icon bg-info-subtle text-info rounded-circle me-4">
-                                <i class="bi bi-pen fs-3"></i>
-                            </div>
-                            <div>
-                                <h5 class="fw-bold mb-1">심사평가 결과 서명</h5>
-                                <p class="text-muted mb-0 small">면접 심사 평가 완료 후 개인 서명을 합니다.</p>
-                            </div>
+                            <i class="bi bi-chevron-right fs-4 text-muted"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2행: 새 평가 작성 + 평가 목록 -->
+            <!-- 안건 2: 직원채용 면접 평가 -->
             <div class="row justify-content-center mb-4">
-                <div class="col-md-5 mb-4">
-                    <div class="card menu-card h-100 shadow-sm" onclick="showPage('evaluate_select')" role="button">
-                        <div class="card-body d-flex align-items-center p-4">
-                            <div class="menu-icon bg-primary-subtle text-primary rounded-circle me-4">
-                                <i class="bi bi-plus-lg fs-3"></i>
+                <div class="col-md-10">
+                    <div class="card shadow-sm border-start border-4 border-primary">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-4 text-center" style="min-width:50px;">
+                                    <span class="badge bg-primary fs-5">2</span>
+                                </div>
+                                <div class="menu-icon bg-primary-subtle text-primary rounded-circle me-4">
+                                    <i class="bi bi-people fs-3"></i>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-1">직원채용 면접 심사</h5>
+                                    <p class="text-muted mb-0 small">면접 평가, 결과 확인, 심사위원 서명</p>
+                                </div>
                             </div>
-                            <div>
-                                <h5 class="fw-bold mb-1">새 평가 작성</h5>
-                                <p class="text-muted mb-0 small">면접자에 대한 새로운 평가를 작성합니다.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-5 mb-4">
-                    <div class="card menu-card h-100 shadow-sm admin-only-card" onclick="if(isAdmin()) showPage('interviews')" role="button">
-                        <div class="card-body d-flex align-items-center p-4">
-                            <div class="menu-icon bg-light text-secondary rounded-circle me-4">
-                                <i class="bi bi-list-ul fs-3"></i>
-                            </div>
-                            <div>
-                                <h5 class="fw-bold mb-1">평가 목록 <span class="text-danger small admin-label">(관리자 전용)</span></h5>
-                                <p class="text-muted mb-0 small">전체 평가 목록을 조회합니다.</p>
+                            <div class="row ms-5 ps-4">
+                                <div class="col-md-4 mb-2">
+                                    <div class="card menu-card h-100 shadow-sm" onclick="showPage('evaluate_select')" role="button">
+                                        <div class="card-body text-center p-3">
+                                            <i class="bi bi-pencil-square fs-3 text-primary"></i>
+                                            <div class="fw-bold mt-1 small">평가 작성</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <div class="card menu-card h-100 shadow-sm" onclick="showPage('eval_sig_select')" role="button">
+                                        <div class="card-body text-center p-3">
+                                            <i class="bi bi-pen fs-3 text-info"></i>
+                                            <div class="fw-bold mt-1 small">심사 서명</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <div class="card menu-card h-100 shadow-sm admin-only-card" onclick="if(isAdmin()) showPage('results_dashboard')" role="button">
+                                        <div class="card-body text-center p-3">
+                                            <i class="bi bi-bar-chart fs-3 text-success"></i>
+                                            <div class="fw-bold mt-1 small">결과/현황</div>
+                                            <span class="text-danger small admin-label">(관리자)</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 3행: 첨부파일 + 대시보드 -->
-            <div class="row justify-content-center mb-5">
-                <div class="col-md-5 mb-4">
-                    <div class="card menu-card h-100 shadow-sm" onclick="showPage('files')" role="button">
-                        <div class="card-body d-flex align-items-center p-4">
-                            <div class="menu-icon bg-success-subtle text-success rounded-circle me-4">
-                                <i class="bi bi-paperclip fs-3"></i>
-                            </div>
-                            <div>
-                                <h5 class="fw-bold mb-1">첨부파일 관리</h5>
-                                <p class="text-muted mb-0 small">면접 관련 자료를 업로드하고 관리합니다. (최대 10개)</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-5 mb-4">
-                    <div class="card menu-card h-100 shadow-sm admin-only-card" onclick="if(isAdmin()) showPage('results_dashboard')" role="button">
-                        <div class="card-body d-flex align-items-center p-4">
-                            <div class="menu-icon bg-light text-secondary rounded-circle me-4">
-                                <i class="bi bi-speedometer2 fs-3"></i>
-                            </div>
-                            <div>
-                                <h5 class="fw-bold mb-1">평가 현황 대시보드 <span class="text-danger small admin-label">(관리자 전용)</span></h5>
-                                <p class="text-muted mb-0 small">전체 평가 현황 및 통계를 확인합니다.</p>
-                            </div>
-                        </div>
+            <!-- 관리자 도구 -->
+            <div class="row justify-content-center mb-4 admin-only">
+                <div class="col-md-10">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="showPage('interviews')"><i class="bi bi-list-ul"></i> 면접 관리</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="showPage('files')"><i class="bi bi-paperclip"></i> 첨부파일</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="showPage('users')"><i class="bi bi-people"></i> 사용자 관리</button>
                     </div>
                 </div>
             </div>
@@ -182,12 +173,11 @@
             <div class="row justify-content-center">
                 <div class="col-md-10">
                     <div class="card bg-light border-0 shadow-sm">
-                        <div class="card-body p-4">
-                            <h6 class="fw-bold mb-3">※ 합격 기준 안내</h6>
-                            <ul class="list-unstyled mb-0">
-                                <li class="mb-2">• 최종합격 기준: 면접 응시자 중 고득점자 우선 선발</li>
-                                <li class="mb-2">• 단, <strong>전체 면접위원 평균 점수가 70점 이상</strong>인 경우에 한함</li>
-                                <li>• <strong class="text-primary">탁월</strong>(기대 수준을 크게 초과 달성) · <strong class="text-warning">우수</strong>(기대 수준을 상회) · <strong>보통</strong>(기대 수준에 부합) · <strong class="text-danger">미흡</strong>(기대 수준에 다소 미달) · <strong class="text-dark">매우 미흡</strong>(기대 수준에 현저히 미달)</li>
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-2 small">※ 직원채용 합격 기준</h6>
+                            <ul class="list-unstyled mb-0 small text-muted">
+                                <li>• 면접 응시자 중 고득점자 우선 선발, 전체 면접위원 <strong class="text-dark">평균 70점 이상</strong>인 경우에 한함</li>
+                                <li>• <strong class="text-primary">탁월</strong> · <strong class="text-warning">우수</strong> · <strong>보통</strong> · <strong class="text-danger">미흡</strong> · <strong class="text-dark">매우 미흡</strong> 5등급 평가</li>
                             </ul>
                         </div>
                     </div>
