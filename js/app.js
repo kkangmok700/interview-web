@@ -1356,7 +1356,7 @@ function printCommitteeMinutes(ivId) {
     window.print();
 }
 
-// --- 사용자 관리 ---
+// --- 위원관리 ---
 function renderUsers() {
     const users = getUsers();
     const interviews = getInterviews();
@@ -1419,7 +1419,7 @@ document.getElementById('addUserForm').addEventListener('submit', function(e) {
         name: document.getElementById('newName').value.trim(),
         role: document.getElementById('newRole').value
     });
-    if (ok) { showAlert('사용자가 등록되었습니다!'); this.reset(); renderUsers(); }
+    if (ok) { showAlert('위원이 등록되었습니다!'); this.reset(); renderUsers(); }
     else showAlert('이미 존재하는 아이디입니다.', 'danger');
 });
 
