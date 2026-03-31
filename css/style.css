@@ -61,6 +61,33 @@ body {
 .table-success { background-color: #d1e7dd !important; }
 .bg-light { background-color: #eef2f7 !important; }
 
+/* 서명 캔버스 */
+.sig-canvas-wrap {
+    border: 2px solid #adb5bd;
+    border-radius: 12px;
+    background: #fff;
+    position: relative;
+    touch-action: none;
+}
+.sig-canvas-wrap canvas {
+    display: block;
+    border-radius: 10px;
+    cursor: crosshair;
+}
+.sig-canvas-wrap .sig-placeholder {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    color: #ccc; font-size: 1.1rem; pointer-events: none;
+}
+.sig-preview {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #f8f9fa;
+    min-height: 80px;
+    display: flex; align-items: center; justify-content: center;
+}
+.sig-preview img { max-height: 70px; max-width: 180px; }
+
 /* 관리자 전용 - 심사위원일 때 비활성화 */
 .judge-mode .admin-only { display: none !important; }
 .judge-mode .admin-only-card { opacity: .5; pointer-events: none; }

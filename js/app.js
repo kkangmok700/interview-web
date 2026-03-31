@@ -90,6 +90,7 @@ function renderInterviews() {
                 </div>
                 <div class="card-footer bg-white d-flex flex-wrap gap-1">
                     <button class="btn btn-sm btn-outline-success" onclick="startEvaluate('${iv.id}')"><i class="bi bi-pencil-square"></i> 평가</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="openSignaturePage('${iv.id}')"><i class="bi bi-pen"></i> 서명</button>
                     <button class="btn btn-sm btn-outline-info" onclick="showResults('${iv.id}')"><i class="bi bi-bar-chart"></i> 결과</button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="showMinutes('${iv.id}')"><i class="bi bi-file-text"></i> 회의록</button>
                 </div>
@@ -332,7 +333,20 @@ function submitEval(status) {
     };
     saveEvaluation(ev);
     selectedScores = {};
-    showAlert(status === 'submitted' ? '최종 제출되었습니다!' : '임시 저장되었습니다.', status === 'submitted' ? 'success' : 'info');
+
+    if (status === 'submitted') {
+        // 모든 지원자 평가 완료 여부 확인
+        const allEvals = getEvaluations().filter(e => e.interviewId === currentInterview.id && e.judgeId === currentUser.id && e.status === 'submitted');
+        const allDone = currentInterview.applicants.every(app => allEvals.some(e => e.applicantId === app.id));
+        if (allDone) {
+            showAlert('모든 지원자 평가가 완료되었습니다! 서명을 진행해주세요.', 'success');
+            openSignaturePage(currentInterview.id);
+            return;
+        }
+        showAlert('최종 제출되었습니다!', 'success');
+    } else {
+        showAlert('임시 저장되었습니다.', 'info');
+    }
     renderApplicantList();
 }
 
@@ -455,6 +469,231 @@ function removeFile(idx) {
     setDB('files', files);
     renderFiles();
 }
+
+// ===== 서명 페이지 =====
+let sigCanvas = null;
+let sigCtx = null;
+let sigDrawing = false;
+
+function openSignaturePage(ivId) {
+    const iv = getInterviews().find(i => i.id === ivId);
+    if (!iv) return;
+    currentInterview = iv;
+
+    const signatures = getDB('signatures') || [];
+    const mySig = signatures.find(s => s.interviewId === ivId && s.userId === currentUser.id);
+    const judges = getUsers().filter(u => iv.judges.includes(u.id));
+    const admin = getUsers().find(u => u.role === 'admin');
+    const allSigners = admin ? [admin, ...judges] : judges;
+
+    let html = `
+    <a href="#" onclick="showPage('evaluate_select')" class="text-muted"><i class="bi bi-arrow-left"></i> 뒤로</a>
+    <div class="eval-header mt-2 mb-0">
+        <h4 class="mb-0"><i class="bi bi-pen"></i> 심사위원 서명</h4>
+        <small>${iv.title} | ${iv.date}</small>
+    </div>
+    <div class="card shadow-sm rounded-top-0 mb-4">
+        <div class="card-body p-4">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> 모든 평가가 완료되었습니다. 아래에 자필 서명을 해주세요.
+            </div>
+
+            <!-- 서명 현황 -->
+            <h5 class="fw-bold mb-3 border-bottom pb-2">서명 현황</h5>
+            <div class="row mb-4">
+                ${allSigners.map(signer => {
+                    const sig = signatures.find(s => s.interviewId === ivId && s.userId === signer.id);
+                    return `
+                    <div class="col-md-4 col-lg-3 mb-3">
+                        <div class="card ${sig ? 'border-success' : 'border-secondary'}">
+                            <div class="card-header ${sig ? 'bg-success' : 'bg-secondary'} text-white text-center py-2">
+                                <small class="fw-bold">${signer.name}</small>
+                            </div>
+                            <div class="card-body sig-preview p-2">
+                                ${sig
+                                    ? `<img src="${sig.dataUrl}" alt="서명"><br>`
+                                    : '<span class="text-muted small">미서명</span>'}
+                            </div>
+                            ${sig ? `<div class="card-footer text-center py-1"><small class="text-muted">${new Date(sig.timestamp).toLocaleString('ko-KR')}</small></div>` : ''}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+
+            <!-- 내 서명 입력 -->
+            <h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-pen"></i> 내 서명</h5>
+            <p class="text-muted small mb-2">아래 영역에 마우스 또는 터치로 서명해주세요.</p>
+
+            <div class="sig-canvas-wrap mb-3" style="width:100%;max-width:500px;">
+                <canvas id="sigCanvas" width="500" height="200"></canvas>
+                <span class="sig-placeholder" id="sigPlaceholder">여기에 서명하세요</span>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button class="btn btn-outline-secondary" onclick="clearSignature()">
+                    <i class="bi bi-eraser"></i> 다시 쓰기
+                </button>
+                <button class="btn btn-primary main-btn" onclick="saveSignature('${ivId}')">
+                    <i class="bi bi-check-lg"></i> 서명 저장
+                </button>
+            </div>
+
+            ${mySig ? '<div class="alert alert-success"><i class="bi bi-check-circle"></i> 서명이 이미 등록되어 있습니다. 다시 서명하면 기존 서명이 교체됩니다.</div>' : ''}
+
+            <!-- 회의록 이동 -->
+            ${(() => {
+                const allSigned = allSigners.every(s => signatures.some(sig => sig.interviewId === ivId && sig.userId === s.id));
+                return allSigned ? `
+                <div class="alert alert-success mt-3">
+                    <i class="bi bi-check-circle-fill"></i> <strong>모든 서명이 완료되었습니다!</strong>
+                    <button class="btn btn-success ms-3" onclick="showMinutes('${ivId}')">
+                        <i class="bi bi-file-text"></i> 회의록 보기
+                    </button>
+                </div>` : '';
+            })()}
+        </div>
+    </div>`;
+
+    document.getElementById('signatureContent').innerHTML = html;
+    showPage('signature');
+
+    // 캔버스 초기화
+    setTimeout(initSignatureCanvas, 100);
+}
+
+function initSignatureCanvas() {
+    sigCanvas = document.getElementById('sigCanvas');
+    if (!sigCanvas) return;
+    sigCtx = sigCanvas.getContext('2d');
+
+    // 고해상도 지원
+    const rect = sigCanvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    sigCanvas.width = rect.width * dpr;
+    sigCanvas.height = 200 * dpr;
+    sigCanvas.style.width = rect.width + 'px';
+    sigCanvas.style.height = '200px';
+    sigCtx.scale(dpr, dpr);
+
+    sigCtx.strokeStyle = '#1a237e';
+    sigCtx.lineWidth = 2.5;
+    sigCtx.lineCap = 'round';
+    sigCtx.lineJoin = 'round';
+    sigDrawing = false;
+
+    // 마우스 이벤트
+    sigCanvas.addEventListener('mousedown', sigStart);
+    sigCanvas.addEventListener('mousemove', sigMove);
+    sigCanvas.addEventListener('mouseup', sigEnd);
+    sigCanvas.addEventListener('mouseleave', sigEnd);
+
+    // 터치 이벤트
+    sigCanvas.addEventListener('touchstart', sigTouchStart, { passive: false });
+    sigCanvas.addEventListener('touchmove', sigTouchMove, { passive: false });
+    sigCanvas.addEventListener('touchend', sigEnd);
+}
+
+function getPos(e) {
+    const rect = sigCanvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function sigStart(e) {
+    sigDrawing = true;
+    const pos = getPos(e);
+    sigCtx.beginPath();
+    sigCtx.moveTo(pos.x, pos.y);
+    document.getElementById('sigPlaceholder').style.display = 'none';
+}
+
+function sigMove(e) {
+    if (!sigDrawing) return;
+    const pos = getPos(e);
+    sigCtx.lineTo(pos.x, pos.y);
+    sigCtx.stroke();
+}
+
+function sigEnd() {
+    sigDrawing = false;
+}
+
+function sigTouchStart(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = sigCanvas.getBoundingClientRect();
+    sigDrawing = true;
+    sigCtx.beginPath();
+    sigCtx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+    document.getElementById('sigPlaceholder').style.display = 'none';
+}
+
+function sigTouchMove(e) {
+    e.preventDefault();
+    if (!sigDrawing) return;
+    const touch = e.touches[0];
+    const rect = sigCanvas.getBoundingClientRect();
+    sigCtx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+    sigCtx.stroke();
+}
+
+function clearSignature() {
+    if (!sigCtx) return;
+    const dpr = window.devicePixelRatio || 1;
+    sigCtx.clearRect(0, 0, sigCanvas.width / dpr, sigCanvas.height / dpr);
+    document.getElementById('sigPlaceholder').style.display = '';
+}
+
+function isCanvasBlank() {
+    const dpr = window.devicePixelRatio || 1;
+    const blank = document.createElement('canvas');
+    blank.width = sigCanvas.width;
+    blank.height = sigCanvas.height;
+    return sigCanvas.toDataURL() === blank.toDataURL();
+}
+
+function saveSignature(ivId) {
+    if (!sigCanvas || isCanvasBlank()) {
+        showAlert('서명을 입력해주세요.', 'warning');
+        return;
+    }
+
+    const dataUrl = sigCanvas.toDataURL('image/png');
+    const signatures = getDB('signatures') || [];
+    const idx = signatures.findIndex(s => s.interviewId === ivId && s.userId === currentUser.id);
+    const sigData = {
+        interviewId: ivId,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        dataUrl: dataUrl,
+        timestamp: new Date().toISOString()
+    };
+
+    if (idx >= 0) signatures[idx] = sigData;
+    else signatures.push(sigData);
+    setDB('signatures', signatures);
+
+    showAlert('서명이 저장되었습니다!', 'success');
+    openSignaturePage(ivId); // 새로고침
+}
+
+// 면접 카드에 서명 버튼 추가를 위해 renderApplicantList 수정
+const _origRenderApplicantList = renderApplicantList;
+renderApplicantList = function() {
+    _origRenderApplicantList();
+    // 모든 평가 완료 시 서명 버튼 추가
+    const evals = getEvaluations().filter(e => e.interviewId === currentInterview.id && e.judgeId === currentUser.id && e.status === 'submitted');
+    const allDone = currentInterview.applicants.length > 0 && currentInterview.applicants.every(app => evals.some(e => e.applicantId === app.id));
+    if (allDone) {
+        const container = document.getElementById('evaluateContent');
+        container.innerHTML += `
+        <div class="alert alert-success mt-4 d-flex justify-content-between align-items-center">
+            <div><i class="bi bi-check-circle-fill"></i> <strong>모든 지원자 평가 완료!</strong> 서명을 진행해주세요.</div>
+            <button class="btn btn-success btn-lg" onclick="openSignaturePage('${currentInterview.id}')">
+                <i class="bi bi-pen"></i> 서명하기
+            </button>
+        </div>`;
+    }
+};
 
 // --- 초기화 ---
 window.addEventListener('load', function() {
