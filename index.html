@@ -88,21 +88,38 @@
                 <p class="text-muted fs-5">아래 메뉴에서 원하는 기능을 선택하세요.</p>
             </div>
 
-            <!-- 1행: 운영위원회 회의록 서명 (가장 앞) + 새 평가 작성 -->
+            <!-- 1행: 운영위원회 회의록 서명 + 심사평가 서명 -->
             <div class="row justify-content-center mb-4">
                 <div class="col-md-5 mb-4">
-                    <div class="card menu-card h-100 shadow-sm" onclick="showPage('committee_select')" role="button">
+                    <div class="card menu-card h-100 shadow-sm border-start border-4 border-warning" onclick="showPage('committee_select')" role="button">
                         <div class="card-body d-flex align-items-center p-4">
                             <div class="menu-icon bg-warning-subtle text-warning rounded-circle me-4">
                                 <i class="bi bi-journal-text fs-3"></i>
                             </div>
                             <div>
                                 <h5 class="fw-bold mb-1">운영위원회 회의록 서명</h5>
-                                <p class="text-muted mb-0 small">산학협력단 운영위원회 회의록에 자필 서명합니다.</p>
+                                <p class="text-muted mb-0 small">산학협력단 운영위원회 의결 회의록에 자필 서명합니다.</p>
                             </div>
                         </div>
                     </div>
                 </div>
+                <div class="col-md-5 mb-4">
+                    <div class="card menu-card h-100 shadow-sm border-start border-4 border-info" onclick="showPage('eval_sig_select')" role="button">
+                        <div class="card-body d-flex align-items-center p-4">
+                            <div class="menu-icon bg-info-subtle text-info rounded-circle me-4">
+                                <i class="bi bi-pen fs-3"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">심사평가 결과 서명</h5>
+                                <p class="text-muted mb-0 small">면접 심사 평가 완료 후 개인 서명을 합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2행: 새 평가 작성 + 평가 목록 -->
+            <div class="row justify-content-center mb-4">
                 <div class="col-md-5 mb-4">
                     <div class="card menu-card h-100 shadow-sm" onclick="showPage('evaluate_select')" role="button">
                         <div class="card-body d-flex align-items-center p-4">
@@ -116,10 +133,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- 2행: 평가 목록 + 첨부파일 관리 -->
-            <div class="row justify-content-center mb-4">
                 <div class="col-md-5 mb-4">
                     <div class="card menu-card h-100 shadow-sm admin-only-card" onclick="if(isAdmin()) showPage('interviews')" role="button">
                         <div class="card-body d-flex align-items-center p-4">
@@ -133,6 +146,10 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- 3행: 첨부파일 + 대시보드 -->
+            <div class="row justify-content-center mb-5">
                 <div class="col-md-5 mb-4">
                     <div class="card menu-card h-100 shadow-sm" onclick="showPage('files')" role="button">
                         <div class="card-body d-flex align-items-center p-4">
@@ -146,10 +163,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- 3행: 평가 현황 대시보드 -->
-            <div class="row justify-content-center mb-5">
                 <div class="col-md-5 mb-4">
                     <div class="card menu-card h-100 shadow-sm admin-only-card" onclick="if(isAdmin()) showPage('results_dashboard')" role="button">
                         <div class="card-body d-flex align-items-center p-4">
@@ -163,7 +176,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-5 mb-4"></div>
             </div>
 
             <!-- 합격 기준 안내 -->
@@ -304,7 +316,13 @@
             </div>
         </div>
 
-        <!-- ===== 서명 페이지 ===== -->
+        <!-- ===== 심사평가 서명 선택 ===== -->
+        <div id="page-eval_sig_select" class="page d-none">
+            <h3 class="mb-4"><i class="bi bi-pen"></i> 심사평가 결과 서명</h3>
+            <div id="evalSigSelectList"></div>
+        </div>
+
+        <!-- ===== 심사평가 서명 페이지 ===== -->
         <div id="page-signature" class="page d-none">
             <div id="signatureContent"></div>
         </div>

@@ -63,6 +63,7 @@ function showPage(name) {
     if (name === 'results_dashboard') renderResultsDashboard();
     if (name === 'files') renderFiles();
     if (name === 'committee_select') renderCommitteeSelect();
+    if (name === 'eval_sig_select') renderEvalSigSelect();
 }
 
 // --- 알림 ---
@@ -953,7 +954,49 @@ function removeFile(idx) {
     renderFiles();
 }
 
-// ===== 서명 페이지 =====
+// ===== 심사평가 서명 선택 =====
+function renderEvalSigSelect() {
+    var interviews = getInterviews();
+    var el = document.getElementById('evalSigSelectList');
+    var myInterviews = interviews.filter(function(iv) {
+        return isAdmin() || iv.judges.includes(currentUser.id);
+    });
+    if (!myInterviews.length) {
+        el.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-inbox display-1"></i><p class="mt-3">배정된 면접이 없습니다.</p></div>';
+        return;
+    }
+    var sigs = getDB('signatures') || [];
+    var html = '<p class="text-muted mb-4">면접 심사 평가 완료 후 개인 서명을 합니다. 운영위원회 회의록 서명과는 별도입니다.</p>';
+    for (var i = 0; i < myInterviews.length; i++) {
+        var iv = myInterviews[i];
+        var judges = getUsers().filter(function(u) { return iv.judges.includes(u.id); });
+        var admin = getUsers().find(function(u) { return u.role === 'admin'; });
+        var allSigners = admin ? [admin].concat(judges) : judges;
+        var signedCount = 0;
+        for (var m = 0; m < allSigners.length; m++) {
+            if (sigs.some(function(s) { return s.interviewId === iv.id && s.userId === allSigners[m].id; })) signedCount++;
+        }
+        var mySigned = sigs.some(function(s) { return s.interviewId === iv.id && s.userId === currentUser.id; });
+        var statusBadge = mySigned
+            ? '<span class="badge bg-success me-2"><i class="bi bi-check"></i> 서명완료</span>'
+            : '<span class="badge bg-warning text-dark me-2">미서명</span>';
+        var countBadge = '<span class="badge bg-secondary">전체 ' + signedCount + '/' + allSigners.length + '</span>';
+
+        html += '<div class="card shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center">'
+            + '<div>'
+            + '<h5 class="fw-bold mb-1">' + iv.title + '</h5>'
+            + '<small class="text-muted">' + iv.date + ' | 지원자 ' + iv.applicants.length + '명</small>'
+            + '<div class="mt-1">' + statusBadge + countBadge + '</div>'
+            + '</div>'
+            + '<button class="btn btn-info text-white" onclick="openSignaturePage(\'' + iv.id + '\')">'
+            + '<i class="bi bi-pen"></i> 서명하기'
+            + '</button>'
+            + '</div></div>';
+    }
+    el.innerHTML = html;
+}
+
+// ===== 심사평가 서명 페이지 =====
 let sigCanvas = null;
 let sigCtx = null;
 let sigDrawing = false;
@@ -1016,9 +1059,9 @@ function openSignaturePage(ivId) {
             : '';
 
         var html = ''
-            + '<a href="#" onclick="showPage(\'evaluate_select\')" class="text-muted"><i class="bi bi-arrow-left"></i> 뒤로</a>'
+            + '<a href="#" onclick="showPage(\'eval_sig_select\')" class="text-muted"><i class="bi bi-arrow-left"></i> 뒤로</a>'
             + '<div class="eval-header mt-2 mb-0">'
-            + '<h4 class="mb-0"><i class="bi bi-pen"></i> 심사위원 서명</h4>'
+            + '<h4 class="mb-0"><i class="bi bi-pen"></i> 심사평가 결과 서명</h4>'
             + '<small>' + iv.title + ' | ' + iv.date + '</small>'
             + '</div>'
             + '<div class="card shadow-sm rounded-top-0 mb-4"><div class="card-body p-4">'
