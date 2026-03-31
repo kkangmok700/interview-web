@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>면접 평가 시스템 - 산학협력단</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div id="loginPage" class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="card shadow" style="width:420px;">
+        <div class="card-body p-5">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle mb-3" style="width:80px;height:80px;">
+                    <i class="bi bi-clipboard-check fs-1 text-primary"></i>
+                </div>
+                <h2 class="fw-bold">면접 평가 시스템</h2>
+                <p class="text-muted">산학협력단 · 2026 혁신지원사업 직원채용</p>
+            </div>
+            <div id="loginError" class="alert alert-danger d-none">아이디 또는 비밀번호가 올바르지 않습니다.</div>
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label">아이디</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" class="form-control" id="loginId" placeholder="아이디를 입력하세요" required autofocus>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">비밀번호</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <input type="password" class="form-control" id="loginPw" placeholder="비밀번호를 입력하세요" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-lg main-btn">
+                    <i class="bi bi-box-arrow-in-right"></i> 로그인
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 메인 앱 -->
+<div id="app" class="d-none">
+    <!-- 상단 네비게이션 -->
+    <nav class="navbar navbar-dark main-navbar">
+        <div class="container">
+            <div>
+                <span class="navbar-brand fw-bold fs-4">면접 평가 시스템</span>
+                <div class="text-white-50 small" style="margin-top:-5px;">2026 혁신지원사업 직원채용</div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-white small">
+                    <i class="bi bi-person-circle"></i>
+                    <span id="currentUserName"></span>
+                    <span id="currentUserBadge" class="badge ms-1"></span>
+                </span>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()">
+                    <i class="bi bi-box-arrow-right"></i> 로그아웃
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 서브 네비게이션 -->
+    <nav id="subNav" class="navbar navbar-light bg-white border-bottom shadow-sm py-1">
+        <div class="container">
+            <ul class="navbar-nav flex-row gap-1">
+                <li class="nav-item"><a class="nav-link px-3" href="#" onclick="showPage('dashboard')"><i class="bi bi-house"></i> 홈</a></li>
+                <li class="nav-item"><a class="nav-link px-3" href="#" onclick="showPage('interviews')"><i class="bi bi-calendar-event"></i> 면접관리</a></li>
+                <li class="nav-item admin-only"><a class="nav-link px-3" href="#" onclick="showPage('users')"><i class="bi bi-people"></i> 사용자관리</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4 mb-5">
+        <!-- 알림 -->
+        <div id="alertBox" class="d-none"></div>
+
+        <!-- ===== 대시보드 ===== -->
+        <div id="page-dashboard" class="page">
+            <div class="text-center mb-5">
+                <p class="text-muted fs-5">아래 메뉴에서 원하는 기능을 선택하세요.</p>
+            </div>
+            <div class="row justify-content-center mb-4">
+                <div class="col-md-5 mb-4">
+                    <div class="card menu-card h-100 shadow-sm" onclick="showPage('evaluate_select')" role="button">
+                        <div class="card-body d-flex align-items-center p-4">
+                            <div class="menu-icon bg-primary-subtle text-primary rounded-circle me-4">
+                                <i class="bi bi-plus-lg fs-3"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">새 평가 작성</h5>
+                                <p class="text-muted mb-0 small">면접자에 대한 새로운 평가를 작성합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5 mb-4">
+                    <div class="card menu-card h-100 shadow-sm admin-only-card" onclick="if(isAdmin()) showPage('interviews')" role="button">
+                        <div class="card-body d-flex align-items-center p-4">
+                            <div class="menu-icon bg-light text-secondary rounded-circle me-4">
+                                <i class="bi bi-list-ul fs-3"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">평가 목록 <span class="text-danger small admin-label">(관리자 전용)</span></h5>
+                                <p class="text-muted mb-0 small">전체 평가 목록을 조회합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row justify-content-center mb-5">
+                <div class="col-md-5 mb-4">
+                    <div class="card menu-card h-100 shadow-sm" onclick="showPage('files')" role="button">
+                        <div class="card-body d-flex align-items-center p-4">
+                            <div class="menu-icon bg-success-subtle text-success rounded-circle me-4">
+                                <i class="bi bi-paperclip fs-3"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">첨부파일 관리</h5>
+                                <p class="text-muted mb-0 small">면접 관련 자료를 업로드하고 관리합니다. (최대 10개)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5 mb-4">
+                    <div class="card menu-card h-100 shadow-sm admin-only-card" onclick="if(isAdmin()) showPage('results_dashboard')" role="button">
+                        <div class="card-body d-flex align-items-center p-4">
+                            <div class="menu-icon bg-light text-secondary rounded-circle me-4">
+                                <i class="bi bi-speedometer2 fs-3"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">평가 현황 대시보드 <span class="text-danger small admin-label">(관리자 전용)</span></h5>
+                                <p class="text-muted mb-0 small">전체 평가 현황 및 통계를 확인합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="card bg-light border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <h6 class="fw-bold mb-3">※ 합격 기준 안내</h6>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">• 최종합격 기준: 면접 응시자 중 고득점자 우선 선발</li>
+                                <li class="mb-2">• 단, <strong>전체 면접위원 평균 점수가 70점 이상</strong>인 경우에 한함</li>
+                                <li>• <strong class="text-primary">탁월</strong>(기대 수준을 크게 초과 달성) · <strong class="text-warning">우수</strong>(기대 수준을 상회) · <strong>보통</strong>(기대 수준에 부합) · <strong class="text-danger">미흡</strong>(기대 수준에 다소 미달) · <strong class="text-dark">매우 미흡</strong>(기대 수준에 현저히 미달)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 면접 관리 ===== -->
+        <div id="page-interviews" class="page d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3><i class="bi bi-calendar-event"></i> 면접 관리</h3>
+                <button class="btn btn-primary main-btn admin-only" onclick="showPage('create_interview')">
+                    <i class="bi bi-plus-lg"></i> 새 면접 생성
+                </button>
+            </div>
+            <div id="interviewList"></div>
+        </div>
+
+        <!-- ===== 면접 생성 ===== -->
+        <div id="page-create_interview" class="page d-none">
+            <h3 class="mb-4"><i class="bi bi-plus-circle"></i> 새 면접 생성</h3>
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form id="createInterviewForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">면접명 *</label>
+                            <input type="text" class="form-control" id="ivTitle" placeholder="예: 2026년 상반기 연구원 채용 면접" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">면접 날짜 *</label>
+                                <input type="date" class="form-control" id="ivDate" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">채용 인원 수</label>
+                                <input type="number" class="form-control" id="ivHireCount" min="1" value="1">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">심사위원 선택 *</label>
+                            <div id="judgeCheckboxes"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">지원자 등록</label>
+                            <div id="applicantInputs">
+                                <div class="row mb-2 applicant-row">
+                                    <div class="col-4"><input type="text" class="form-control" placeholder="이름" name="appName"></div>
+                                    <div class="col-4"><input type="text" class="form-control" placeholder="지원분야" name="appField"></div>
+                                    <div class="col-3"><input type="number" class="form-control" placeholder="나이" name="appAge"></div>
+                                    <div class="col-1"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.applicant-row').remove()"><i class="bi bi-x"></i></button></div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="addApplicantRow()">
+                                <i class="bi bi-plus"></i> 지원자 추가
+                            </button>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary main-btn btn-lg"><i class="bi bi-check-lg"></i> 면접 생성</button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg" onclick="showPage('interviews')">취소</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 평가 대상 선택 ===== -->
+        <div id="page-evaluate_select" class="page d-none">
+            <h3 class="mb-4"><i class="bi bi-pencil-square"></i> 평가할 면접 선택</h3>
+            <div id="evalInterviewList"></div>
+        </div>
+
+        <!-- ===== 평가 입력 ===== -->
+        <div id="page-evaluate" class="page d-none">
+            <div id="evaluateContent"></div>
+        </div>
+
+        <!-- ===== 결과 대시보드 ===== -->
+        <div id="page-results_dashboard" class="page d-none">
+            <h3 class="mb-4"><i class="bi bi-bar-chart"></i> 평가 현황 대시보드</h3>
+            <div id="resultsDashboard"></div>
+        </div>
+
+        <!-- ===== 첨부파일 관리 ===== -->
+        <div id="page-files" class="page d-none">
+            <h3 class="mb-4"><i class="bi bi-paperclip"></i> 첨부파일 관리</h3>
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">파일 업로드 (최대 10개)</label>
+                        <input type="file" class="form-control" id="fileUpload" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp">
+                    </div>
+                    <div id="fileList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 사용자 관리 ===== -->
+        <div id="page-users" class="page d-none">
+            <h3 class="mb-4"><i class="bi bi-people"></i> 사용자 관리</h3>
+            <div class="row">
+                <div class="col-md-5">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-success text-white"><h5 class="mb-0">새 사용자 등록</h5></div>
+                        <div class="card-body">
+                            <form id="addUserForm">
+                                <div class="mb-2"><input type="text" class="form-control" id="newUsername" placeholder="아이디" required></div>
+                                <div class="mb-2"><input type="password" class="form-control" id="newPassword" placeholder="비밀번호" required></div>
+                                <div class="mb-2"><input type="text" class="form-control" id="newName" placeholder="이름 (예: 홍길동 교수)" required></div>
+                                <div class="mb-3">
+                                    <select class="form-select" id="newRole">
+                                        <option value="judge">심사위원</option>
+                                        <option value="admin">관리자</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-success w-100">등록</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <div class="card shadow-sm">
+                        <div class="card-header main-btn text-white"><h5 class="mb-0">등록된 사용자</h5></div>
+                        <div class="card-body p-0"><div id="userTable"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 회의록 ===== -->
+        <div id="page-minutes" class="page d-none">
+            <div id="minutesContent"></div>
+        </div>
+    </div>
+
+    <footer class="text-center text-muted py-4 border-top">
+        <small>산학협력단 면접 평가 시스템 &copy; 2026</small>
+    </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

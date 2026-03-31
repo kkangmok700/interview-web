@@ -1,0 +1,78 @@
+body {
+    background-color: #f5f7fa;
+    font-family: 'Malgun Gothic','NanumGothic',-apple-system,BlinkMacSystemFont,sans-serif;
+    color: #333;
+}
+.main-navbar {
+    background: linear-gradient(135deg,#1a237e 0%,#283593 50%,#1a3a5c 100%);
+    padding: 16px 0;
+}
+.main-btn {
+    background: linear-gradient(135deg,#1a237e,#283593) !important;
+    border: none !important;
+    color: #fff !important;
+}
+.menu-card {
+    border: 1px solid #e8ecf1;
+    border-radius: 12px;
+    transition: all .25s ease;
+    cursor: pointer;
+    background: #fff;
+}
+.menu-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,.1) !important;
+}
+.menu-icon {
+    width: 56px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.card { border: none; border-radius: 12px; }
+.card-header { border-radius: 12px 12px 0 0 !important; }
+.btn { border-radius: 8px; }
+.badge { border-radius: 6px; }
+
+/* 평가 등급 버튼 */
+.score-radio-wrapper { flex:1; min-width:80px; max-width:140px; }
+.score-btn {
+    width: 100%; padding: 12px 8px; border-radius: 12px !important;
+    text-align: center; transition: all .2s; border-width: 2px;
+    cursor: pointer;
+}
+.score-btn .score-value { font-size: 1.4rem; font-weight: bold; }
+.score-btn .score-label { font-size: .78rem; margin-top: 2px; }
+.score-btn.selected {
+    background-color: #1a237e !important; border-color: #1a237e !important;
+    color: #fff !important; transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(26,35,126,.4);
+}
+.score-btn:hover { transform: scale(1.03); border-color: #1a237e; }
+
+.eval-section {
+    padding: 20px; border: 1px solid #e8ecf1;
+    border-radius: 12px; background: #fff; margin-bottom: 16px;
+}
+.eval-header {
+    background: linear-gradient(135deg,#1a237e,#283593);
+    border-radius: 12px 12px 0 0; color: #fff; padding: 16px 20px;
+}
+
+.table-success { background-color: #d1e7dd !important; }
+.bg-light { background-color: #eef2f7 !important; }
+
+/* 관리자 전용 - 심사위원일 때 비활성화 */
+.judge-mode .admin-only { display: none !important; }
+.judge-mode .admin-only-card { opacity: .5; pointer-events: none; }
+.judge-mode .admin-label { display: inline; }
+
+@media print {
+    .navbar,.btn,footer,.alert,#subNav { display: none !important; }
+    .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+}
+@media (max-width:768px) {
+    .table-responsive { font-size: .85rem; }
+    .menu-icon { width: 44px; height: 44px; }
+    .score-radio-wrapper { min-width: 60px; }
+    .score-btn .score-value { font-size: 1.1rem; }
+}
