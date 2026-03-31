@@ -82,6 +82,8 @@ function initDB() {
     if (!getDB('evaluations')) setDB('evaluations', []);
     if (!getDB('files')) setDB('files', []);
     if (!getDB('signatures')) setDB('signatures', []);
+    if (!getDB('committee_minutes')) setDB('committee_minutes', []);
+    if (!getDB('committee_signatures')) setDB('committee_signatures', []);
 }
 
 function getUsers() { return getDB('users') || []; }

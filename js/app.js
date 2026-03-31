@@ -578,39 +578,243 @@ var committeeCtx = null;
 var committeeDrawing = false;
 
 function renderCommitteeSelect() {
-    var interviews = getInterviews();
     var el = document.getElementById('committeeSelectList');
-    if (!interviews.length) {
-        el.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-inbox display-1"></i><p class="mt-3">등록된 면접이 없습니다.</p></div>';
-        return;
-    }
+    var minutes = getDB('committee_minutes') || [];
     var committeeSigs = getDB('committee_signatures') || [];
-    var html = '';
-    for (var i = 0; i < interviews.length; i++) {
-        var iv = interviews[i];
-        var admin = getUsers().find(function(u) { return u.role === 'admin'; });
-        var judges = getUsers().filter(function(u) { return iv.judges.includes(u.id); });
-        var allMembers = admin ? [admin].concat(judges) : judges;
-        var signedCount = 0;
-        for (var m = 0; m < allMembers.length; m++) {
-            if (committeeSigs.some(function(s) { return s.interviewId === iv.id && s.userId === allMembers[m].id; })) signedCount++;
-        }
-        var allSigned = signedCount === allMembers.length;
-        var statusBadge = allSigned
-            ? '<span class="badge bg-success">서명완료</span>'
-            : '<span class="badge bg-warning text-dark">서명 ' + signedCount + '/' + allMembers.length + '</span>';
+    var allUsers = getUsers();
 
-        html += '<div class="card shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center">'
-            + '<div>'
-            + '<h5 class="fw-bold mb-1">' + iv.title + ' ' + statusBadge + '</h5>'
-            + '<small class="text-muted">' + iv.date + ' | 채용 ' + iv.hireCount + '명 | 지원자 ' + iv.applicants.length + '명</small>'
+    var html = '';
+
+    // 새 회의록 업로드 (관리자만)
+    if (isAdmin()) {
+        html += '<div class="card shadow-sm mb-4">'
+            + '<div class="card-header main-btn text-white"><h5 class="mb-0"><i class="bi bi-plus-circle"></i> 새 회의록 등록</h5></div>'
+            + '<div class="card-body p-4">'
+            + '<form id="committeeMinutesForm">'
+            + '<div class="row mb-3">'
+            + '<div class="col-md-6"><label class="form-label fw-bold">회의명 *</label><input type="text" class="form-control" id="cmTitle" placeholder="예: 제1차 산학협력단 운영위원회" required></div>'
+            + '<div class="col-md-3"><label class="form-label fw-bold">회의일자 *</label><input type="date" class="form-control" id="cmDate" required></div>'
+            + '<div class="col-md-3"><label class="form-label fw-bold">회차</label><input type="text" class="form-control" id="cmNumber" placeholder="예: 제1차"></div>'
             + '</div>'
-            + '<button class="btn btn-primary main-btn" onclick="openCommitteePage(\'' + iv.id + '\')">'
-            + '<i class="bi bi-journal-text"></i> 회의록 서명'
-            + '</button>'
-            + '</div></div>';
+            + '<div class="mb-3"><label class="form-label fw-bold">안건</label><textarea class="form-control" id="cmAgenda" rows="2" placeholder="회의 안건을 입력하세요"></textarea></div>'
+            + '<div class="mb-3"><label class="form-label fw-bold">회의록 파일 첨부 (PDF/이미지)</label><input type="file" class="form-control" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp"></div>'
+            + '<div class="mb-3"><label class="form-label fw-bold">서명 대상 위원 선택 *</label><div id="cmSignerCheckboxes"></div></div>'
+            + '<button type="submit" class="btn btn-primary main-btn"><i class="bi bi-check-lg"></i> 회의록 등록</button>'
+            + '</form></div></div>';
     }
+
+    // 등록된 회의록 목록
+    html += '<h5 class="fw-bold mb-3">등록된 회의록</h5>';
+
+    if (!minutes.length) {
+        html += '<div class="text-center py-4 text-muted"><i class="bi bi-inbox display-4"></i><p class="mt-2">등록된 회의록이 없습니다.</p></div>';
+    } else {
+        for (var i = minutes.length - 1; i >= 0; i--) {
+            var m = minutes[i];
+            var signers = m.signers || [];
+            var signedCount = 0;
+            for (var s = 0; s < signers.length; s++) {
+                if (committeeSigs.some(function(sig) { return sig.minuteId === m.id && sig.userId === signers[s]; })) signedCount++;
+            }
+            var allSigned = signedCount === signers.length && signers.length > 0;
+            var statusBadge = allSigned
+                ? '<span class="badge bg-success">서명완료</span>'
+                : '<span class="badge bg-warning text-dark">서명 ' + signedCount + '/' + signers.length + '</span>';
+            var fileIcon = m.fileData ? '<span class="badge bg-info me-1"><i class="bi bi-file-earmark"></i> 파일첨부</span>' : '';
+
+            html += '<div class="card shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center">'
+                + '<div>'
+                + '<h5 class="fw-bold mb-1">' + (m.number ? m.number + ' ' : '') + m.title + ' ' + statusBadge + '</h5>'
+                + '<small class="text-muted">' + m.date + ' | ' + (m.agenda || '안건 없음') + '</small>'
+                + '<div class="mt-1">' + fileIcon + '</div>'
+                + '</div>'
+                + '<div class="d-flex gap-2">'
+                + '<button class="btn btn-primary main-btn" onclick="openCommitteeMinute(\'' + m.id + '\')">'
+                + '<i class="bi bi-journal-text"></i> 서명하기</button>';
+            if (isAdmin()) {
+                html += '<button class="btn btn-outline-danger btn-sm" onclick="if(confirm(\'삭제하시겠습니까?\')) deleteCommitteeMinute(\'' + m.id + '\')"><i class="bi bi-trash"></i></button>';
+            }
+            html += '</div></div></div>';
+        }
+    }
+
     el.innerHTML = html;
+
+    // 위원 체크박스 렌더링
+    if (isAdmin()) {
+        var checkDiv = document.getElementById('cmSignerCheckboxes');
+        if (checkDiv) {
+            var usersHtml = '';
+            for (var u = 0; u < allUsers.length; u++) {
+                usersHtml += '<div class="form-check form-check-inline">'
+                    + '<input class="form-check-input" type="checkbox" value="' + allUsers[u].id + '" id="cms_' + allUsers[u].id + '" checked>'
+                    + '<label class="form-check-label" for="cms_' + allUsers[u].id + '">' + allUsers[u].name + '</label></div>';
+            }
+            checkDiv.innerHTML = usersHtml;
+        }
+
+        // 폼 이벤트
+        var form = document.getElementById('committeeMinutesForm');
+        if (form) {
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                var title = document.getElementById('cmTitle').value.trim();
+                var date = document.getElementById('cmDate').value;
+                var number = document.getElementById('cmNumber').value.trim();
+                var agenda = document.getElementById('cmAgenda').value.trim();
+                var signers = [];
+                var checks = document.querySelectorAll('#cmSignerCheckboxes input:checked');
+                for (var c = 0; c < checks.length; c++) signers.push(checks[c].value);
+
+                if (!title || !date || !signers.length) {
+                    showAlert('회의명, 일자, 서명 대상을 입력해주세요.', 'warning');
+                    return;
+                }
+
+                var fileInput = document.getElementById('cmFile');
+                var file = fileInput.files[0];
+
+                function saveMinute(fileData, fileName) {
+                    var mins = getDB('committee_minutes') || [];
+                    mins.push({
+                        id: Date.now().toString(),
+                        title: title,
+                        date: date,
+                        number: number,
+                        agenda: agenda,
+                        signers: signers,
+                        fileData: fileData || null,
+                        fileName: fileName || null,
+                        createdAt: new Date().toISOString()
+                    });
+                    setDB('committee_minutes', mins);
+                    showAlert('회의록이 등록되었습니다!', 'success');
+                    renderCommitteeSelect();
+                }
+
+                if (file) {
+                    var reader = new FileReader();
+                    reader.onload = function(ev) {
+                        saveMinute(ev.target.result, file.name);
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    saveMinute(null, null);
+                }
+            };
+        }
+    }
+}
+
+function deleteCommitteeMinute(id) {
+    var mins = (getDB('committee_minutes') || []).filter(function(m) { return m.id !== id; });
+    setDB('committee_minutes', mins);
+    // 관련 서명도 삭제
+    var sigs = (getDB('committee_signatures') || []).filter(function(s) { return s.minuteId !== id; });
+    setDB('committee_signatures', sigs);
+    showAlert('회의록이 삭제되었습니다.', 'info');
+    renderCommitteeSelect();
+}
+
+function openCommitteeMinute(minuteId) {
+    try {
+        var mins = getDB('committee_minutes') || [];
+        var m = mins.find(function(x) { return x.id === minuteId; });
+        if (!m) { showAlert('회의록을 찾을 수 없습니다.', 'danger'); return; }
+
+        var committeeSigs = getDB('committee_signatures') || [];
+        var allUsers = getUsers();
+
+        // 서명 현황
+        var sigCards = '';
+        var signedCount = 0;
+        for (var i = 0; i < m.signers.length; i++) {
+            var uid = m.signers[i];
+            var user = allUsers.find(function(u) { return u.id === uid; });
+            if (!user) continue;
+            var sig = committeeSigs.find(function(s) { return s.minuteId === minuteId && s.userId === uid; });
+            if (sig) signedCount++;
+            var hCls = sig ? 'bg-success' : 'bg-secondary';
+            var bCls = sig ? 'border-success' : 'border-secondary';
+            var body = sig
+                ? '<img src="' + sig.dataUrl + '" alt="서명" style="max-height:70px;max-width:150px;">'
+                : '<span class="text-muted small">미서명</span>';
+            var footer = sig
+                ? '<div class="card-footer text-center py-1"><small class="text-muted">' + new Date(sig.timestamp).toLocaleString('ko-KR') + '</small></div>'
+                : '';
+
+            sigCards += '<div class="col-md-3 col-sm-4 mb-3">'
+                + '<div class="card ' + bCls + '">'
+                + '<div class="card-header ' + hCls + ' text-white text-center py-2"><small class="fw-bold">' + user.name + '</small></div>'
+                + '<div class="card-body sig-preview p-2" style="min-height:80px;">' + body + '</div>'
+                + footer + '</div></div>';
+        }
+
+        var allSigned = signedCount === m.signers.length && m.signers.length > 0;
+        var isSigner = m.signers.indexOf(currentUser.id) >= 0;
+        var mySig = committeeSigs.find(function(s) { return s.minuteId === minuteId && s.userId === currentUser.id; });
+
+        var html = ''
+            + '<a href="#" onclick="showPage(\'committee_select\')" class="text-muted"><i class="bi bi-arrow-left"></i> 뒤로</a>'
+            + '<div class="eval-header mt-2 mb-0">'
+            + '<h4 class="mb-0"><i class="bi bi-journal-text"></i> ' + (m.number ? m.number + ' ' : '') + m.title + '</h4>'
+            + '<small>' + m.date + '</small></div>'
+            + '<div class="card shadow-sm rounded-top-0 mb-4"><div class="card-body p-4">';
+
+        // 회의 정보
+        html += '<h5 class="fw-bold mb-3 border-bottom pb-2">회의 정보</h5>'
+            + '<table class="table table-bordered mb-4">'
+            + '<tr><th class="table-light" style="width:25%">회의명</th><td>' + (m.number ? m.number + ' ' : '') + m.title + '</td></tr>'
+            + '<tr><th class="table-light">회의일자</th><td>' + m.date + '</td></tr>'
+            + '<tr><th class="table-light">안건</th><td>' + (m.agenda || '-') + '</td></tr>'
+            + '</table>';
+
+        // 첨부 파일
+        if (m.fileData) {
+            html += '<h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-file-earmark"></i> 첨부 회의록</h5>'
+                + '<div class="mb-4">';
+            if (m.fileData.startsWith('data:image')) {
+                html += '<img src="' + m.fileData + '" alt="회의록" class="img-fluid border rounded" style="max-width:100%;">';
+            } else if (m.fileData.startsWith('data:application/pdf')) {
+                html += '<embed src="' + m.fileData + '" type="application/pdf" width="100%" height="600px" class="border rounded">';
+            } else {
+                html += '<a href="' + m.fileData + '" download="' + (m.fileName || '회의록') + '" class="btn btn-outline-primary"><i class="bi bi-download"></i> ' + (m.fileName || '파일 다운로드') + '</a>';
+            }
+            html += '</div>';
+        }
+
+        // 서명 현황
+        html += '<h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-pen"></i> 위원 서명 현황 (' + signedCount + '/' + m.signers.length + ')</h5>'
+            + '<div class="row mb-4">' + sigCards + '</div>';
+
+        // 서명 입력
+        if (isSigner) {
+            html += '<h5 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-pen"></i> 내 서명</h5>'
+                + '<p class="text-muted small mb-2">아래 영역에 마우스 또는 터치로 서명해주세요.</p>'
+                + '<div class="sig-canvas-wrap mb-3" style="width:100%;max-width:500px;">'
+                + '<canvas id="committeeCanvas" width="500" height="200"></canvas>'
+                + '<span class="sig-placeholder" id="committeePlaceholder">여기에 서명하세요</span></div>'
+                + '<div class="d-flex gap-2 mb-4">'
+                + '<button class="btn btn-outline-secondary" onclick="clearCommitteeSignature()"><i class="bi bi-eraser"></i> 다시 쓰기</button>'
+                + '<button class="btn btn-primary main-btn" onclick="saveCommitteeMinuteSignature(\'' + minuteId + '\')"><i class="bi bi-check-lg"></i> 서명 저장</button></div>';
+            if (mySig) {
+                html += '<div class="alert alert-success"><i class="bi bi-check-circle"></i> 서명이 등록되어 있습니다. 다시 서명하면 교체됩니다.</div>';
+            }
+        }
+
+        if (allSigned) {
+            html += '<div class="alert alert-success mt-3"><i class="bi bi-check-circle-fill"></i> <strong>모든 위원의 서명이 완료되어 회의록이 확정되었습니다.</strong>'
+                + ' <button class="btn btn-success ms-3" onclick="window.print()"><i class="bi bi-printer"></i> 인쇄</button></div>';
+        }
+
+        html += '</div></div>';
+        document.getElementById('committeeContent').innerHTML = html;
+        showPage('committee');
+        if (isSigner) setTimeout(initCommitteeCanvas, 200);
+    } catch(err) {
+        console.error('회의록 페이지 오류:', err);
+        showAlert('페이지 로드 중 오류: ' + err.message, 'danger');
+    }
 }
 
 function openCommitteePage(ivId) {
@@ -852,6 +1056,36 @@ function saveCommitteeSignature(ivId) {
 
     showAlert('운영위원회 서명이 저장되었습니다!', 'success');
     openCommitteePage(ivId);
+}
+
+function saveCommitteeMinuteSignature(minuteId) {
+    if (!committeeCanvas) { showAlert('서명을 입력해주세요.', 'warning'); return; }
+    var blank = document.createElement('canvas');
+    blank.width = committeeCanvas.width;
+    blank.height = committeeCanvas.height;
+    if (committeeCanvas.toDataURL() === blank.toDataURL()) {
+        showAlert('서명을 입력해주세요.', 'warning'); return;
+    }
+
+    var dataUrl = committeeCanvas.toDataURL('image/png');
+    var sigs = getDB('committee_signatures') || [];
+    var idx = -1;
+    for (var i = 0; i < sigs.length; i++) {
+        if (sigs[i].minuteId === minuteId && sigs[i].userId === currentUser.id) { idx = i; break; }
+    }
+    var sigData = {
+        minuteId: minuteId,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        dataUrl: dataUrl,
+        timestamp: new Date().toISOString()
+    };
+    if (idx >= 0) sigs[idx] = sigData;
+    else sigs.push(sigData);
+    setDB('committee_signatures', sigs);
+
+    showAlert('회의록 서명이 저장되었습니다!', 'success');
+    openCommitteeMinute(minuteId);
 }
 
 function printCommitteeMinutes(ivId) {
