@@ -597,6 +597,7 @@ function renderCommitteeSelect() {
             + '<div class="col-md-3"><label class="form-label fw-bold">회의일자 *</label><input type="date" class="form-control" id="cmDate" required></div>'
             + '<div class="col-md-3"><label class="form-label fw-bold">회의록 파일 *</label><input type="file" class="form-control" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp" required></div>'
             + '</div>'
+            + '<div class="mb-3"><label class="form-label fw-bold"><i class="bi bi-paperclip"></i> 첨부파일 (선택, 최대 5개)</label><input type="file" class="form-control" id="cmAttachments" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.hwp,.xlsx,.xls,.pptx,.ppt,.zip"></div>'
             + '<div class="mb-3"><label class="form-label fw-bold">서명 대상 위원 *</label><div id="cmSignerCheckboxes"></div></div>'
             + '<button type="submit" class="btn btn-primary main-btn"><i class="bi bi-upload"></i> 회의록 등록</button>'
             + '</form></div></div>';
@@ -645,6 +646,8 @@ function renderCommitteeSelect() {
                 + '<h6 class="fw-bold mb-1">' + (m.number ? m.number + ' ' : '') + m.title + '</h6>'
                 + '<small class="text-muted">' + m.date;
             if (m.fileName) html += ' | <span class="text-primary">' + m.fileName + '</span>';
+            var attachCount = (m.attachments && m.attachments.length) ? m.attachments.length : 0;
+            if (attachCount > 0) html += ' | <span class="text-success"><i class="bi bi-paperclip"></i> 첨부 ' + attachCount + '건</span>';
             html += '</small>'
                 + '<div class="mt-1">' + statusBadge + myBadge + '</div>'
                 + '</div>'
@@ -699,21 +702,47 @@ function renderCommitteeSelect() {
                     showAlert('회의록 파일을 첨부해주세요.', 'warning'); return;
                 }
 
+                // 첨부파일 처리
+                var attachInput = document.getElementById('cmAttachments');
+                var attachFiles = attachInput ? Array.from(attachInput.files).slice(0, 5) : [];
+
                 var reader = new FileReader();
                 reader.onload = function(ev) {
+                    var mainFileData = ev.target.result;
+
+                    // 첨부파일 읽기
+                    var attachments = [];
+                    var pending = attachFiles.length;
+                    if (pending === 0) {
+                        doSave(mainFileData, []);
+                    } else {
+                        attachFiles.forEach(function(af) {
+                            var ar = new FileReader();
+                            ar.onload = function(ae) {
+                                attachments.push({ name: af.name, size: (af.size / 1024).toFixed(1) + 'KB', data: ae.target.result });
+                                pending--;
+                                if (pending === 0) doSave(mainFileData, attachments);
+                            };
+                            ar.readAsDataURL(af);
+                        });
+                    }
+                };
+
+                function doSave(mainFileData, attachments) {
                     var mins = getDB('committee_minutes') || [];
                     mins.push({
                         id: Date.now().toString(),
                         title: title, date: date, number: number, agenda: agenda,
                         signers: signers,
-                        fileData: ev.target.result,
+                        fileData: mainFileData,
                         fileName: file.name,
+                        attachments: attachments,
                         createdAt: new Date().toISOString()
                     });
                     setDB('committee_minutes', mins);
                     showAlert((number ? number + ' ' : '') + title + ' 회의록이 등록되었습니다!', 'success');
                     renderCommitteeSelect();
-                };
+                }
                 reader.readAsDataURL(file);
             };
         }
@@ -794,6 +823,33 @@ function openCommitteeMinute(minuteId) {
             }
         } else {
             html += '<div class="alert alert-secondary mb-4">첨부된 파일이 없습니다.</div>';
+        }
+
+        // 첨부파일
+        var atts = m.attachments || [];
+        if (atts.length > 0) {
+            html += '<div class="mb-4">'
+                + '<h6 class="fw-bold mb-2"><i class="bi bi-paperclip"></i> 첨부파일 (' + atts.length + '건)</h6>'
+                + '<div class="list-group">';
+            for (var ai = 0; ai < atts.length; ai++) {
+                var att = atts[ai];
+                var isImg = att.data && att.data.startsWith('data:image');
+                var isPdf = att.data && att.data.startsWith('data:application/pdf');
+                var icon = isImg ? 'bi-file-image text-success' : (isPdf ? 'bi-file-pdf text-danger' : 'bi-file-earmark text-primary');
+
+                html += '<div class="list-group-item">'
+                    + '<div class="d-flex justify-content-between align-items-center">'
+                    + '<span><i class="bi ' + icon + ' me-2"></i><strong>' + att.name + '</strong> <small class="text-muted">(' + att.size + ')</small></span>'
+                    + '<div>';
+                if (isImg || isPdf) {
+                    html += '<button class="btn btn-sm btn-outline-primary me-1" onclick="event.stopPropagation(); toggleAttachment(\'' + m.id + '\', ' + ai + ')"><i class="bi bi-eye"></i> 보기</button>';
+                }
+                html += '<a href="' + att.data + '" download="' + att.name + '" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation();"><i class="bi bi-download"></i></a>'
+                    + '</div></div>'
+                    + '<div id="att_' + m.id + '_' + ai + '" class="d-none mt-2"></div>'
+                    + '</div>';
+            }
+            html += '</div></div>';
         }
 
         // STEP 2: 서명 현황
@@ -1075,6 +1131,26 @@ function saveCommitteeSignature(ivId) {
 
     showAlert('운영위원회 서명이 저장되었습니다!', 'success');
     openCommitteePage(ivId);
+}
+
+function toggleAttachment(minuteId, attIndex) {
+    var el = document.getElementById('att_' + minuteId + '_' + attIndex);
+    if (!el) return;
+    if (!el.classList.contains('d-none')) {
+        el.classList.add('d-none');
+        el.innerHTML = '';
+        return;
+    }
+    var mins = getDB('committee_minutes') || [];
+    var m = mins.find(function(x) { return x.id === minuteId; });
+    if (!m || !m.attachments || !m.attachments[attIndex]) return;
+    var att = m.attachments[attIndex];
+    if (att.data.startsWith('data:image')) {
+        el.innerHTML = '<img src="' + att.data + '" class="img-fluid border rounded" style="max-width:100%;">';
+    } else if (att.data.startsWith('data:application/pdf')) {
+        el.innerHTML = '<embed src="' + att.data + '" type="application/pdf" width="100%" height="500px" class="border rounded">';
+    }
+    el.classList.remove('d-none');
 }
 
 function saveCommitteeMinuteSignature(minuteId) {
